@@ -3,6 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { authGuard, isMember, jsonError } from "@/lib/api";
 import { settleGroup, type RawContribution } from "@/lib/settlement-algorithm";
 import { createPaymentLink, razorpayConfigured } from "@/lib/razorpay";
+import { generateReminderMessage } from "@/lib/gemini";
+import {
+  sendPaymentReminderEmail,
+  NEEDS_RECONNECT_MESSAGE,
+} from "@/lib/gmail-send";
+import { googleOAuthConfigured } from "@/lib/google-auth";
 
 /**
  * GET /api/settlement?groupId=... — compute net balances + the minimal
@@ -34,8 +40,26 @@ export async function GET(req: NextRequest) {
       include: {
         debtor: { select: { id: true, name: true } },
         creditor: { select: { id: true, name: true } },
+        emailLogs: { orderBy: { createdAt: "desc" }, take: 1 },
       },
       orderBy: { createdAt: "desc" },
+    });
+
+    // Surface the latest email delivery attempt per debt for the UI chip
+    const debtsWithEmail = debts.map((debt) => {
+      const log = debt.emailLogs[0];
+      const { emailLogs, ...rest } = debt;
+      return {
+        ...rest,
+        lastEmail: log
+          ? {
+              status: log.status,
+              toEmail: log.toEmail,
+              error: log.errorMessage,
+              sentAt: log.createdAt.toISOString(),
+            }
+          : null,
+      };
     });
 
     // Naive pairwise count for the "before" number in the graph
@@ -46,7 +70,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       balances,
       transfers,
-      debts,
+      debts: debtsWithEmail,
       stats: { naiveCount, minimalCount: transfers.length },
       razorpayEnabled: razorpayConfigured(),
     });
@@ -75,7 +99,9 @@ export async function POST(req: NextRequest) {
     const group = await prisma.group.findUnique({
       where: { id: groupId },
       include: {
-        members: { include: { user: { select: { id: true, name: true, phone: true } } } },
+        members: {
+          include: { user: { select: { id: true, name: true, phone: true, email: true } } },
+        },
       },
     });
     if (!group) return jsonError("Group not found", 404);
@@ -103,6 +129,14 @@ export async function POST(req: NextRequest) {
     const memberById = new Map(group.members.map((m) => [m.user.id, m.user]));
     let created = 0;
     const errors: string[] = [];
+    const createdDebts: Array<{
+      id: string;
+      debtorName: string;
+      creditorName: string;
+      amount: number;
+      email: string | null;
+      paymentUrl: string | null;
+    }> = [];
 
     for (const t of transfers) {
       let paymentLinkId: string | null = null;
@@ -128,7 +162,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      await prisma.debt.create({
+      const debt = await prisma.debt.create({
         data: {
           groupId,
           debtorId: t.fromId,
@@ -139,6 +173,122 @@ export async function POST(req: NextRequest) {
         },
       });
       created++;
+      createdDebts.push({
+        id: debt.id,
+        debtorName: t.fromName,
+        creditorName: t.toName,
+        amount: t.amount,
+        email: memberById.get(t.fromId)?.email ?? null,
+        paymentUrl,
+      });
+    }
+
+    // ── Fully-automatic smart EMAIL reminders ─────────────────────────────
+    // Fires the instant payment links exist (part of this same save action —
+    // no button click per debtor). Each email is written by Gemini and sent
+    // via the Gmail API from the bill-creator's own connected Gmail account.
+    // If the sender hasn't connected Gmail (or a debtor has no email on
+    // file), the message is stored and shown in-app as a copyable fallback.
+    const sender = await prisma.user.findUnique({
+      where: { id: auth.user.id },
+      select: {
+        id: true,
+        name: true,
+        googleEmail: true,
+        googleAccessToken: true,
+        googleRefreshToken: true,
+        googleTokenExpiry: true,
+        gmailSendGranted: true,
+      },
+    });
+    const gmailConnected = Boolean(
+      sender?.gmailSendGranted && sender?.googleAccessToken
+    );
+
+    const reminders: Array<{
+      debtId: string;
+      debtorName: string;
+      channel: "email" | "in-app";
+      message: string;
+      error?: string;
+    }> = [];
+
+    for (const d of createdDebts) {
+      try {
+        const gen = await generateReminderMessage(
+          d.debtorName,
+          d.creditorName,
+          group.name,
+          d.amount,
+          0 // brand-new debt → gentle tone
+        );
+        let message = gen.data ?? "";
+        const hasRealLink =
+          d.paymentUrl && !d.paymentUrl.startsWith("#");
+        if (hasRealLink) {
+          message += `\n\nPay securely here: ${d.paymentUrl}`;
+        } else if (d.paymentUrl) {
+          message += "\n\n(Open the app to use your demo payment link.)";
+        }
+
+        let channel: "email" | "in-app" = "in-app";
+        let sendError: string | undefined;
+
+        if (gmailConnected && d.email && sender) {
+          const sent = await sendPaymentReminderEmail(sender, {
+            senderUserId: sender.id,
+            toEmail: d.email,
+            personName: d.debtorName,
+            amount: d.amount,
+            paymentLink: d.paymentUrl,
+            urgencyLevel: "gentle",
+            groupName: group.name,
+            creditorName: d.creditorName,
+            message,
+          });
+          await prisma.emailLog.create({
+            data: {
+              debtId: d.id,
+              toEmail: d.email,
+              status: sent.ok ? "sent" : "failed",
+              gmailMessageId: sent.gmailMessageId ?? null,
+              errorMessage: sent.error ?? null,
+            },
+          });
+          if (sent.ok) {
+            channel = "email";
+          } else {
+            sendError = sent.error;
+          }
+        } else if (gmailConnected && !d.email) {
+          sendError = "Debtor has no email on file";
+        } else if (!gmailConnected && googleOAuthConfigured()) {
+          sendError = NEEDS_RECONNECT_MESSAGE;
+        }
+
+        await prisma.debt.update({
+          where: { id: d.id },
+          data: {
+            lastReminderMessage: message,
+            ...(channel === "email" ? { reminderSentAt: new Date() } : {}),
+          },
+        });
+
+        reminders.push({
+          debtId: d.id,
+          debtorName: d.debtorName,
+          channel,
+          message,
+          error: sendError,
+        });
+      } catch (e) {
+        // Never let reminder failures break the settlement response
+        errors.push(
+          `Auto-reminder for ${d.debtorName} failed: ${
+            e instanceof Error ? e.message : "unknown"
+          }`
+        );
+      }
     }
 
     await prisma.activity.create({
@@ -153,7 +303,13 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ created, errors });
+    return NextResponse.json({
+      created,
+      errors,
+      reminders,
+      gmailConnected,
+      googleConfigured: googleOAuthConfigured(),
+    });
   } catch (e) {
     return jsonError(
       `Settlement failed: ${e instanceof Error ? e.message : "unknown"}`,

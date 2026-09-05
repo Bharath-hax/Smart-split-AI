@@ -1,4 +1,4 @@
-// SplitSettle AI — Prisma schema
+// SplitSettle AI â€” Prisma schema
 // Push to your database with: npx prisma db push
 
 generator client {
@@ -14,6 +14,13 @@ model User {
   id           String       @id @default(cuid())
   name         String
   phone        String       @unique
+  email        String? // required at app level; optional in DB so old rows don't break
+  // Google OAuth (Gmail send permission for auto reminders)
+  googleEmail        String?
+  googleAccessToken  String?
+  googleRefreshToken String?
+  googleTokenExpiry  DateTime?
+  gmailSendGranted   Boolean   @default(false)
   createdAt    DateTime     @default(now())
   memberships  Membership[]
   uploadedBills Bill[]      @relation("Uploader")
@@ -92,10 +99,26 @@ model Debt {
   status         String    @default("pending") // "pending" | "paid"
   paymentLinkId  String?   @unique
   paymentUrl     String?
-  settledAt      DateTime?
+  lastReminderMessage String?
+  reminderSentAt      DateTime?
+    settledAt      DateTime?
   createdAt      DateTime  @default(now())
+  emailLogs      EmailLog[]
 
   @@index([groupId, status])
+}
+
+model EmailLog {
+  id             String   @id @default(cuid())
+  debt           Debt     @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  debtId         String
+  toEmail        String
+  status         String // "sent" | "failed"
+  gmailMessageId String?
+  errorMessage   String?
+  createdAt      DateTime @default(now())
+
+  @@index([debtId, createdAt])
 }
 
 model Activity {

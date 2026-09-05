@@ -1,0 +1,18 @@
+services:
+  app:
+    build: .
+    container_name: splitsettle-ai
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      # Absolute path inside the container → survives container restarts
+      DATABASE_URL: file:/app/data/dev.db
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    volumes:
+      - app-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  app-data:

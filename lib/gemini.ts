@@ -1,19 +1,31 @@
 /**
- * AI layer — Google Gemini primary, OpenAI GPT-4o-mini fallback.
- * Every call is wrapped in try/except and degrades gracefully:
- * the app stays fully functional (with sensible fallbacks) when no key is set.
+ * AI layer — Google Gemini only (free-model chain, graceful degradation).
+ * Every call is wrapped in try/catch and degrades gracefully.
  */
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+
+export interface ExtractedItem {
+  name: string;
+  quantity: string;
+  unitPrice: number | null;
+  amount: number;
+}
 
 export interface ExtractedBill {
   vendor: string;
   total: number;
-  /** ISO date string */
+  currency: string;
   date: string;
   category: string;
-  items: Array<{ label: string; amount: number }>;
-  /** which engine produced this: "gemini" | "openai" | "fallback" */
+  items: ExtractedItem[];
+  subtotal: number | null;
+  tax: number | null;
+  serviceCharge: number | null;
+  discount: number | null;
   engine: string;
+  needsReview?: boolean;
+  raw?: string;
+  note?: string;
 }
 
 export interface AiResult<T> {
@@ -22,256 +34,277 @@ export interface AiResult<T> {
   error?: string;
 }
 
-/** Treat obvious placeholder values as unset. */
 function isPlaceholder(v: string | undefined): boolean {
   if (!v) return true;
   return /xxxx|your_|change_me|placeholder/i.test(v);
 }
 
-/** Is any AI provider configured (with a real, non-placeholder key)? */
+if (typeof window === "undefined") {
+  if (isPlaceholder(process.env.GEMINI_API_KEY)) {
+    console.error("[SplitSettle AI] ⚠️ GEMINI_API_KEY missing/empty. OCR/AI fallback mode.");
+  } else {
+    console.log(`[SplitSettle AI] ✅ Gemini configured (model: ${process.env.GEMINI_MODEL || "gemini-3.6-flash"}, free-model chain).`);
+  }
+}
+
 export function aiAvailable(): boolean {
-  if (process.env.GEMINI_API_KEY && !isPlaceholder(process.env.GEMINI_API_KEY)) {
-    return true;
-  }
-  return (
-    process.env.USE_OPENAI_FALLBACK === "true" &&
-    Boolean(process.env.OPENAI_API_KEY) &&
-    !isPlaceholder(process.env.OPENAI_API_KEY)
-  );
+  return Boolean(process.env.GEMINI_API_KEY && !isPlaceholder(process.env.GEMINI_API_KEY));
 }
 
-/** Lazily construct the Gemini text/vision model, or null if unconfigured. */
-function geminiModel() {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key || isPlaceholder(key)) return null;
-  try {
-    const genAI = new GoogleGenerativeAI(key);
-    return genAI.getGenerativeModel({
-      model: process.env.GEMINI_MODEL || "gemini-1.5-flash",
-    });
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Parse a JSON object out of a model response that may contain
- * markdown fences or surrounding prose.
- */
+/* ── JSON parser with loose matching ── */
 function parseJsonLoose<T>(text: string): T | null {
   const cleaned = text.replace(/```json|```/g, "").trim();
-  try {
-    return JSON.parse(cleaned) as T;
-  } catch {
+  try { return JSON.parse(cleaned) as T; } catch {
     const start = cleaned.indexOf("{");
     const end = cleaned.lastIndexOf("}");
-    if (start !== -1 && end > start) {
-      try {
-        return JSON.parse(cleaned.slice(start, end + 1)) as T;
-      } catch {
-        return null;
-      }
-    }
+    if (start !== -1 && end > start) { try { return JSON.parse(cleaned.slice(start, end + 1)) as T; } catch { return null; } }
     return null;
   }
 }
 
-/**
- * Call OpenAI chat completions (used only when USE_OPENAI_FALLBACK=true).
- */
-async function openaiChat(
-  messages: Array<{ role: string; content: unknown }>,
-  jsonMode = false
-): Promise<string | null> {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) return null;
-  try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${key}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages,
-        temperature: 0.4,
-        ...(jsonMode ? { response_format: { type: "json_object" } } : {}),
-      }),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data?.choices?.[0]?.message?.content ?? null;
-  } catch {
-    return null;
-  }
-}
+/* ── Bill extraction ── */
+const OCR_PROMPT = `You are an OCR receipt parser. Parse the bill/receipt in the image and return strict JSON matching this schema:
+{"vendor":"...","date":"YYYY-MM-DD","currency":"INR","category":"Food|Travel|Rent|Utilities|Shopping|Other","items":[{"name":"item","quantity":"1","unitPrice":null,"amount":100}],"subtotal":null,"tax":null,"serviceCharge":null,"discount":null,"total":100.0}
+If no line items visible, return one item named after vendor. No markdown.`;
 
-/**
- * OCR a receipt image with Gemini Vision (OpenAI fallback).
- * Returns extracted vendor/total/date/category/items, or a safe fallback
- * result (empty fields, engine "fallback") if AI is unavailable or fails.
- */
-export async function extractBillFromImage(
-  base64: string,
-  mimeType: string
-): Promise<AiResult<ExtractedBill>> {
-  const today = new Date().toISOString().slice(0, 10);
-  const prompt = `You are a receipt-parsing engine. Extract data from this receipt photo and respond with ONLY a JSON object, no prose:
-{"vendor":"store name","total":number,"date":"YYYY-MM-DD","category":"Food|Travel|Rent|Utilities|Shopping|Other","items":[{"label":"item","amount":number}]}
-Rules: total = final amount paid. date defaults to ${today}. items = only visible itemized lines (empty array if none). If the image is not a receipt, return vendor "Unknown" and total 0.`;
-
-  // 1) Gemini Vision
-  const model = geminiModel();
-  if (model) {
-    try {
-      const result = await model.generateContent([
-        prompt,
-        { inlineData: { data: base64, mimeType } },
-      ]);
-      const parsed = parseJsonLoose<ExtractedBill>(result.response.text());
-      if (parsed && typeof parsed.total === "number") {
-        return { ok: true, data: normalize(parsed, "gemini", today) };
-      }
-    } catch {
-      // fall through to OpenAI / fallback
-    }
-  }
-
-  // 2) OpenAI vision fallback
-  if (process.env.USE_OPENAI_FALLBACK === "true" && process.env.OPENAI_API_KEY) {
-    const text = await openaiChat(
-      [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: prompt },
-            {
-              type: "image_url",
-              image_url: { url: `data:${mimeType};base64,${base64}` },
-            },
-          ],
+const BILL_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
+    vendor: { type: SchemaType.STRING },
+    date: { type: SchemaType.STRING },
+    currency: { type: SchemaType.STRING },
+    category: { type: SchemaType.STRING },
+    items: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          name: { type: SchemaType.STRING },
+          quantity: { type: SchemaType.STRING },
+          unitPrice: { type: SchemaType.NUMBER, nullable: true },
+          amount: { type: SchemaType.NUMBER },
         },
-      ],
-      true
-    );
-    const parsed = text ? parseJsonLoose<ExtractedBill>(text) : null;
-    if (parsed && typeof parsed.total === "number") {
-      return { ok: true, data: normalize(parsed, "openai", today) };
-    }
-  }
-
-  // 3) Graceful fallback — user fills the card manually
-  return {
-    ok: true,
-    data: {
-      vendor: "",
-      total: 0,
-      date: today,
-      category: "Other",
-      items: [],
-      engine: "fallback",
+        required: ["name", "quantity", "amount"],
+      },
     },
-    error: aiAvailable()
-      ? "AI could not read this image clearly — please fill in the details."
-      : "No AI key configured — please fill in the details manually.",
-  };
-}
+    subtotal: { type: SchemaType.NUMBER, nullable: true },
+    tax: { type: SchemaType.NUMBER, nullable: true },
+    serviceCharge: { type: SchemaType.NUMBER, nullable: true },
+    discount: { type: SchemaType.NUMBER, nullable: true },
+    total: { type: SchemaType.NUMBER },
+  },
+  required: ["vendor", "date", "currency", "items", "total"],
+} as const;
 
-/**
- * Coerce a parsed bill object into a well-formed ExtractedBill.
- */
-function normalize(
-  parsed: Partial<ExtractedBill>,
-  engine: string,
-  today: string
-): ExtractedBill {
-  return {
-    vendor: parsed.vendor || "Unknown",
-    total: Number(parsed.total) || 0,
-    date: parsed.date || today,
-    category: parsed.category || "Other",
-    items: Array.isArray(parsed.items) ? parsed.items : [],
-    engine,
-  };
-}
+/* ── Free-tier Gemini model chain ───────────────────────────────────────────
+ * Every AI call walks this list in order — the first free model that answers
+ * wins. If ALL Gemini models fail (quota exhausted, 429, outage, bad key) we
+ * degrade to local heuristics (never to another provider). Nothing ever
+ * throws to the caller. */
+const FREE_GEMINI_MODELS: string[] = Array.from(
+  new Set(
+    [
+      process.env.GEMINI_MODEL || "gemini-3.6-flash",
+      "gemini-3.6-flash",
+      "gemini-3.5-flash",
+      "gemini-3.1-flash-lite",
+      "gemini-3-flash-preview",
+      "gemini-flash-latest",
+    ].filter((m): m is string => Boolean(m))
+  )
+);
 
-/** Shared text-completion helper: Gemini first, then OpenAI; null if neither. */
-async function aiText(prompt: string, jsonMode: boolean): Promise<string | null> {
-  const model = geminiModel();
-  if (model) {
+async function geminiGenerate(
+  parts: unknown[],
+  generationConfig: Record<string, unknown>
+): Promise<{ text: string; model: string } | null> {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key || isPlaceholder(key)) return null;
+  let genAI: GoogleGenerativeAI;
+  try {
+    genAI = new GoogleGenerativeAI(key);
+  } catch (e) {
+    console.error("[Gemini] Init failed:", e instanceof Error ? e.message : e);
+    return null;
+  }
+  for (const model of FREE_GEMINI_MODELS) {
     try {
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
-      if (text) return text;
-    } catch {
-      // fall through
+      const m = genAI.getGenerativeModel({
+        model,
+        generationConfig: generationConfig as never,
+      });
+      const result = await m.generateContent(parts as never);
+      const text = result.response.text().trim();
+      if (text) return { text, model };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn(`[Gemini] ${model} failed → trying next: ${msg.slice(0, 140)}`);
     }
   }
-  if (process.env.USE_OPENAI_FALLBACK === "true" && process.env.OPENAI_API_KEY) {
-    return openaiChat([{ role: "user", content: prompt }], jsonMode);
+  console.error("[Gemini] All free models failed.");
+  return null;
+}
+
+async function geminiText(
+  prompt: string,
+  temperature = 0
+): Promise<{ text: string; model: string } | null> {
+  return geminiGenerate([{ text: prompt }], { temperature });
+}
+
+function parseArrayLoose(text: string): unknown[] | null {
+  const cleaned = text.replace(/```json|```/g, "").trim();
+  try {
+    const j = JSON.parse(cleaned);
+    return Array.isArray(j) ? j : null;
+  } catch {
+    /* fall through to bracket scan */
+  }
+  const start = cleaned.indexOf("[");
+  const end = cleaned.lastIndexOf("]");
+  if (start !== -1 && end > start) {
+    try {
+      const j = JSON.parse(cleaned.slice(start, end + 1));
+      return Array.isArray(j) ? j : null;
+    } catch {
+      return null;
+    }
   }
   return null;
 }
 
-/**
- * Generate 2-3 natural-language spending insights from a serialized
- * group context string. Falls back to simple template insights.
- */
-export async function generateInsights(context: string): Promise<AiResult<string[]>> {
-  const prompt = `You are a spending coach for a group splitting expenses.
-Below is the group's real transaction data as JSON. Use ONLY these numbers — never invent amounts.
+function num(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
 
-${context}
-
-Return ONLY a JSON object: {"insights":["...","...","..."]}
-Each insight is 1-2 sentences, specific (name people, categories, amounts), and actionable.`;
-
-  const text = await aiText(prompt, true);
-  if (text) {
-    const parsed = parseJsonLoose<{ insights: string[] }>(text);
-    if (parsed?.insights?.length) return { ok: true, data: parsed.insights.slice(0, 3) };
-  }
+/* Normalize any AI's raw JSON into our ExtractedBill shape. */
+function normalizeBill(parsed: any, engine: string, model: string): ExtractedBill {
+  const items = (Array.isArray(parsed?.items) ? parsed.items : [])
+    .filter((it: any) => it && typeof it.name === "string")
+    .map((it: any) => ({
+      name: String(it.name),
+      quantity: String(it.quantity ?? "1"),
+      unitPrice: num(it.unitPrice),
+      amount: num(it.amount) ?? 0,
+    }));
   return {
-    ok: true,
-    data: [
-      "Add more bills to unlock personalized AI insights for this group.",
-      "Tip: scan receipts right after paying so nothing gets forgotten at settlement time.",
-    ],
+    vendor: String(parsed?.vendor ?? ""),
+    total: Number(parsed?.total) || 0,
+    currency: String(parsed?.currency ?? "INR"),
+    date: String(parsed?.date ?? ""),
+    category: String(parsed?.category ?? ""),
+    items,
+    subtotal: num(parsed?.subtotal),
+    tax: num(parsed?.tax),
+    serviceCharge: num(parsed?.serviceCharge),
+    discount: num(parsed?.discount),
+    engine: `${engine}(${model})`,
   };
 }
 
+const FALLBACK_BILL: ExtractedBill = {
+  vendor: "",
+  total: 0,
+  currency: "INR",
+  date: "",
+  category: "",
+  items: [],
+  subtotal: null,
+  tax: null,
+  serviceCharge: null,
+  discount: null,
+  engine: "fallback",
+  needsReview: true,
+  note: "All AI engines unavailable — please enter the bill manually.",
+};
+
 /**
- * Answer a natural-language question about the group using its real data
- * as grounding context. The model is explicitly instructed to use only the
- * provided numbers.
+ * Scan a receipt image. Engine order:
+ *   1. Gemini vision — walks every free model in FREE_GEMINI_MODELS
+ *   2. Local "fallback" placeholder → UI asks for manual entry
+ */
+export async function extractBillFromImage(
+  imageBase64: string,
+  mimeType: string = "image/jpeg"
+): Promise<ExtractedBill> {
+  const parts = [
+    { inlineData: { data: imageBase64, mimeType } },
+    { text: OCR_PROMPT },
+  ];
+  const config = {
+    temperature: 0,
+    responseMimeType: "application/json",
+    responseSchema: BILL_SCHEMA,
+  };
+
+  // 1 ─ Gemini (every free model, in order)
+  const gem = await geminiGenerate(parts, config);
+  if (gem) {
+    const parsed = parseJsonLoose<any>(gem.text);
+    if (parsed && parsed.items?.length && Number(parsed.total) > 0) {
+      console.log(`[OCR] ✅ extracted via Gemini ${gem.model}`);
+      return normalizeBill(parsed, "gemini", gem.model);
+    }
+  }
+  // 1b ─ retry Gemini without responseSchema (newer models may reject it)
+  const gem2 = await geminiGenerate(parts, {
+    temperature: 0,
+    responseMimeType: "application/json",
+  });
+  if (gem2) {
+    const parsed = parseJsonLoose<any>(gem2.text);
+    if (parsed && parsed.items?.length && Number(parsed.total) > 0) {
+      console.log(`[OCR] ✅ extracted via Gemini ${gem2.model} (no-schema mode)`);
+      return normalizeBill(parsed, "gemini", gem2.model);
+    }
+  }
+
+  // 2 ─ Local fallback (manual entry)
+  console.error("[OCR] ⚠️ All Gemini models failed → manual-entry fallback.");
+  return { ...FALLBACK_BILL };
+}
+
+/**
+ * AI Spending Coach — answer a question using ONLY the grounded group data.
+ * Gemini (all free models) → graceful error.
  */
 export async function answerGroupQuestion(
   question: string,
   context: string
 ): Promise<AiResult<string>> {
-  const prompt = `You are SplitSettle AI, a friendly spending coach inside a bill-splitting app.
-Answer the user's question about their group using ONLY the JSON data below.
-Never invent numbers — if the data doesn't contain the answer, say so honestly.
-Keep the answer under 120 words, conversational, use ₹ for amounts.
+  const prompt = `You are a friendly expense-splitting coach for a group app.
+Answer the user's question using ONLY the data below — never invent numbers.
+Keep the answer under 120 words, plain text, no markdown.
 
 DATA:
 ${context}
 
 QUESTION: ${question}`;
-
-  const text = await aiText(prompt, false);
-  if (text) return { ok: true, data: text.trim() };
-
-  return {
-    ok: true,
-    data: "AI chat needs a GEMINI_API_KEY in your environment. Everything else in the app works without it — add the key to unlock the coach.",
-  };
+  const gem = await geminiText(prompt, 0.3);
+  if (gem) return { ok: true, data: gem.text };
+  return { ok: false, error: "The AI coach is unavailable right now — please try again later." };
 }
 
 /**
- * Generate a short, friendly, personalized payment reminder. Tone scales
- * with how overdue the debt is: gentle on day 1, firmer by day 5+.
+ * AI insights. Returns [] when no AI is reachable (the route still shows the
+ * deterministic recap regardless).
+ */
+export async function generateInsights(context: string): Promise<AiResult<string[]>> {
+  const prompt = `Based on this spending data, give 2-3 short actionable insights (1 sentence each). Be specific with numbers.
+Data: ${context}
+Format as a JSON array of strings.`;
+  const gem = await geminiText(prompt, 0.4);
+  if (gem) {
+    const arr = parseArrayLoose(gem.text);
+    if (arr) return { ok: true, data: arr.map(String) };
+    return { ok: true, data: [gem.text] };
+  }
+  return { ok: true, data: [] };
+}
+
+/**
+ * Smart payment-reminder message. Tone scales with how overdue it is.
+ * Gemini → deterministic template (never fails).
  */
 export async function generateReminderMessage(
   debtorName: string,
@@ -281,28 +314,22 @@ export async function generateReminderMessage(
   daysOverdue: number
 ): Promise<AiResult<string>> {
   const tone =
-    daysOverdue <= 1
-      ? "gentle and casual"
-      : daysOverdue <= 3
-        ? "friendly but nudging"
-        : "firm but still polite";
-  const prompt = `Write a short WhatsApp-style payment reminder (max 2 sentences, no subject line, sign off as "— ${creditorName} via SplitSettle AI").
-Tone: ${tone}. The debt is ${daysOverdue} day(s) old.
-Debtor: ${debtorName}. Group: ${groupName}. Amount: ₹${amount.toFixed(2)}.
-Respond with ONLY JSON: {"message":"..."}`;
-
-  const text = await aiText(prompt, true);
-  if (text) {
-    const parsed = parseJsonLoose<{ message: string }>(text);
-    if (parsed?.message) return { ok: true, data: parsed.message };
-  }
-
-  // Template fallback (no AI key needed)
-  const emoji = daysOverdue <= 1 ? "👋" : daysOverdue <= 3 ? "🙂" : "⏰";
+    daysOverdue >= 5
+      ? "firm but polite"
+      : daysOverdue >= 2
+        ? "friendly nudge"
+        : "very gentle, casual";
+  const prompt = `Write a short payment reminder message (1-2 sentences) reminding ${debtorName} to pay ${amount.toFixed(0)} to ${creditorName} for "${groupName}". ${daysOverdue} days since the split. Tone: ${tone}. Return ONLY the message.`;
+  const gem = await geminiText(prompt, 0.5);
+  if (gem) return { ok: true, data: gem.text };
+  const lead =
+    daysOverdue >= 5
+      ? "Please settle"
+      : daysOverdue >= 2
+        ? "Quick reminder:"
+        : "Hi! Gentle nudge:";
   return {
     ok: true,
-    data: `${emoji} Hey ${debtorName}! Small reminder — you owe ₹${amount.toFixed(
-      2
-    )} in ${groupName}${daysOverdue > 1 ? ` (${daysOverdue} days now)` : ""}. Could you settle up when you get a chance? — ${creditorName} via SplitSettle AI`,
+    data: `${lead} you owe ${amount.toFixed(0)} to ${creditorName} in ${groupName}. Thanks!`,
   };
 }

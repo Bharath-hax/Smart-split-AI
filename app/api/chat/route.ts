@@ -8,7 +8,7 @@ import { settleGroup } from "@/lib/settlement-algorithm";
 /**
  * POST /api/chat — AI Spending Coach.
  * Loads the group's real bills/balances/debts from the DB, serializes them as
- * compact grounding context, and asks Gemini (or GPT-4o-mini) to answer the
+ * compact grounding context, and asks Gemini to answer the
  * user's question using ONLY those numbers.
  */
 export async function POST(req: NextRequest) {

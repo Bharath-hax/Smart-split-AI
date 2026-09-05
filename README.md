@@ -48,16 +48,14 @@ graph TB
     end
 
     subgraph Ext["External services"]
-        GEM["Gemini 1.5 Flash (vision OCR + text)"]
+        GEM["Google Gemini (vision OCR + text: scan, chat, insights)"]
         RZP["Razorpay Test Mode payment links"]
-        GPT["GPT-4o-mini (optional fallback)"]
     end
 
     DB[("Supabase Postgres<br/>Prisma ORM")]
 
     UI --> API
     OCR --> GEM
-    OCR -.-> GPT
     CHAT --> GEM
     LINKS --> RZP
     RZP -- "payment_link.paid (HMAC-SHA256 signed)" --> WEBHOOK
@@ -92,15 +90,40 @@ Open it on your phone via your LAN IP (e.g. `http://192.168.x.x:3000`) for the r
 | `SESSION_SECRET` | Any long random string (`openssl rand -hex 32`) | ✅ |
 | `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/apikey) — free tier | Recommended |
 | `GEMINI_MODEL` | Defaults to `gemini-1.5-flash` | Optional |
-| `OPENAI_API_KEY` + `USE_OPENAI_FALLBACK=true` | platform.openai.com | Optional fallback |
+
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Razorpay Dashboard → Settings → API Keys → **Test mode** (`rzp_test_…`) | For real links |
 | `RAZORPAY_WEBHOOK_SECRET` | You choose it when creating the webhook (see below) | For live settling |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` locally, your Vercel URL in prod | ✅ |
 
 > No keys at all? The app still runs: OCR falls back to a manual form, categories come from a keyword classifier, and payment links are simulated. Great for UI rehearsal.
 
-## ☁️ Deploy to Vercel + Supabase
+## 📧 Automatic email reminders (Gmail API)
 
+The instant a bill is split and payment links are generated, the server **automatically** emails every debtor — no button click needed. Each email is written by Gemini (tone scales with how overdue the debt is: gentle on day 1, firmer by day 5+), formatted as clean HTML with the group name, exact amount owed and a **Pay Now** button linking to the Razorpay payment link.
+
+**How it works:**
+- Uses the **Gmail API** with the `gmail.send` OAuth scope — no third-party email service needed.
+- Emails are sent **from the bill-creator's own connected Gmail account** (whoever saved the split sends the reminder as themselves), not from a shared app account.
+- Delivery is tracked per debt (`EmailLog`): the group screen shows "✅ Emailed" / "❌ Failed to send" with the reason.
+
+**Setup:**
+1. In Google Cloud Console → **APIs & Services → Library**, enable the **Gmail API**.
+2. In **OAuth consent screen → Scopes**, add `https://www.googleapis.com/auth/gmail.send` (alongside `.../gmail.readonly` if you use Passive Bill Detection).
+3. Create an **OAuth Client ID** (type: Web application) and set the env vars:
+
+| Variable | Value |
+|----------|-------|
+| `GOOGLE_CLIENT_ID` | OAuth Client ID from Cloud Console |
+| `GOOGLE_CLIENT_SECRET` | OAuth Client Secret |
+| `GOOGLE_REDIRECT_URI` | `http://localhost:3000/api/google/callback` (or your deployed URL + `/api/google/callback`) |
+
+4. Each sender connects Gmail once from **Profile → Connect Gmail** (Google re-prompts whenever a new scope like `gmail.send` is added).
+
+**Gmail not connected?** Nothing breaks — the app falls back to showing the same personalized nudge inside the group screen with a "Copy message" button so you can send it manually.
+
+---
+
+## ☁️ Deploy to Vercel + Supabase
 1. **Supabase** (free): create a project → copy the **Connection string (URI)**.
 2. **Push this repo to your GitHub.**
 3. **Vercel**: "New Project" → import the repo → add the env vars from the table above (use Supabase's **connection pooling** URI, port `6543`, for `DATABASE_URL`).

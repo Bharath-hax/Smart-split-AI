@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 /**
  * POST /api/ocr — scan a receipt image.
  * Body: { imageBase64, mimeType, groupId? }
- * Runs Gemini Vision (OpenAI fallback), auto-categorizes, and computes an
+ * Runs Gemini Vision, auto-categorizes, and computes an
  * anomaly % vs. the group's historical bill average.
  */
 export async function POST(req: NextRequest) {
@@ -23,19 +23,11 @@ export async function POST(req: NextRequest) {
       ? String(imageBase64).split(",")[1]
       : String(imageBase64);
 
-    const result = await extractBillFromImage(base64, mimeType || "image/jpeg");
-    if (!result.ok || !result.data) {
-      return jsonError(result.error || "Could not process the image", 500);
-    }
-
-    let extracted = result.data;
+        const extracted = await extractBillFromImage(base64, mimeType || "image/jpeg");
 
     // If the AI was unavailable, at least run the keyword categorizer
     if (extracted.engine === "fallback" && extracted.vendor) {
-      extracted = {
-        ...extracted,
-        category: categorizeFromText(extracted.vendor, extracted.items),
-      };
+      extracted.category = categorizeFromText(extracted.vendor, extracted.items.map((it) => ({ label: it.name })));
     } else {
       extracted.category = safeCategory(extracted.category);
     }
@@ -55,7 +47,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ ...extracted, anomalyPct, error: result.error });
+    const { raw, needsReview, ...rest } = extracted;
+    return NextResponse.json({
+      ...rest,
+      anomalyPct,
+      needsReview: Boolean(needsReview),
+      ...(raw ? { debug: { raw } } : {}),
+    });
   } catch (e) {
     return jsonError(
       `OCR failed: ${e instanceof Error ? e.message : "unknown"}`,

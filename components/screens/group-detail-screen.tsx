@@ -11,6 +11,7 @@ import {
   Receipt,
   RefreshCw,
   Wand2,
+  XCircle,
 } from "lucide-react";
 import * as React from "react";
 import { ChatSheet } from "@/components/chat-sheet";
@@ -46,6 +47,14 @@ interface Debt {
   amount: number;
   status: string;
   paymentUrl: string | null;
+  lastReminderMessage: string | null;
+  reminderSentAt: string | null;
+  lastEmail?: {
+    status: string;
+    toEmail: string;
+    error: string | null;
+    sentAt: string;
+  } | null;
   createdAt: string;
   settledAt: string | null;
   debtor: { id: string; name: string };
@@ -396,6 +405,7 @@ function DebtList({
   reminderMsg: string | null;
 }) {
   const [copied, setCopied] = React.useState(false);
+  const [copiedAuto, setCopiedAuto] = React.useState<string | null>(null);
 
   async function copyReminder() {
     if (reminderMsg) {
@@ -403,6 +413,12 @@ function DebtList({
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     }
+  }
+
+  async function copyAutoMessage(debtId: string, message: string) {
+    await navigator.clipboard.writeText(message).catch(() => {});
+    setCopiedAuto(debtId);
+    setTimeout(() => setCopiedAuto(null), 1500);
   }
 
   if (debts.length === 0) return null;
@@ -461,6 +477,42 @@ function DebtList({
                     >
                       {copied ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                       {copied ? "Copied!" : "Copy message"}
+                    </button>
+                  </div>
+                ) : d.lastEmail?.status === "sent" ? (
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-success">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Emailed {d.lastEmail.toEmail}
+                    {d.settledAt ? "" : " — re-send below if needed"}
+                  </div>
+                ) : d.lastEmail?.status === "failed" ? (
+                  <div className="rounded-xl bg-accent p-3 text-xs text-accent-foreground">
+                    <p className="flex items-center gap-1.5 font-medium text-destructive">
+                      <XCircle className="h-3.5 w-3.5" />
+                      Failed to send reminder email
+                    </p>
+                    {d.lastEmail.error && (
+                      <p className="mt-1 leading-relaxed text-muted-foreground">
+                        {d.lastEmail.error}
+                      </p>
+                    )}
+                  </div>
+                ) : d.lastReminderMessage ? (
+                  <div className="rounded-xl bg-accent p-3 text-sm text-accent-foreground">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Auto-reminder (Gmail not connected — copy to send)
+                    </p>
+                    <p className="mt-1 leading-relaxed">{d.lastReminderMessage}</p>
+                    <button
+                      onClick={() => copyAutoMessage(d.id, d.lastReminderMessage!)}
+                      className="tap-highlight-none mt-2 flex items-center gap-1 text-xs font-semibold text-primary"
+                    >
+                      {copiedAuto === d.id ? (
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                      {copiedAuto === d.id ? "Copied!" : "Copy message"}
                     </button>
                   </div>
                 ) : (

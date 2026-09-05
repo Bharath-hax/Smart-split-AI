@@ -1,0 +1,17 @@
+node_modules
+.next
+.git
+.gitignore
+.vscode
+.venv
+*.log
+*.log.err
+*.db
+*.db-journal
+.env
+.env*.local
+Dockerfile
+docker-compose.yml
+.dockerignore
+README.md
+tsconfig.tsbuildinfo

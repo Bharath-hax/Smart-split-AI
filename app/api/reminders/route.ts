@@ -7,7 +7,7 @@ import { generateReminderMessage } from "@/lib/gemini";
  * POST /api/reminders — generate a smart, personalized nudge for a debt.
  * Tone automatically scales with how overdue it is (gentle → firm).
  * Body: { debtId }. Returns the message; the UI shows it with copy/share
- * buttons since WhatsApp isn't wired up.
+ * buttons (the auto-email flow handles delivery when Gmail is connected).
  */
 export async function POST(req: NextRequest) {
   const auth = await authGuard();

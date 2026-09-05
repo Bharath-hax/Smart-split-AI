@@ -1,4 +1,4 @@
-﻿# dependencies
+# dependencies
 /node_modules
 /.pnp
 .pnp.js
@@ -32,8 +32,17 @@ yarn-error.log*
 
 # prisma local db / venv / install logs
 *.db
+*.db-journal
 .venv/
 npm_*.log
 
-build_out.log
-npm_out.log
+# logs — never commit any
+*.log
+*.log.err
+
+# docker
+docker-compose.override.yml
+
+# os / editor
+Thumbs.db
+.vscode/

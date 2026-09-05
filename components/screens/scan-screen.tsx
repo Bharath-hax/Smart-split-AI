@@ -20,9 +20,40 @@ import { Input } from "@/components/ui/input";
 import { CATEGORY_EMOJI, CATEGORY_STYLES, type Category } from "@/lib/categorize";
 import { cn, formatINR } from "@/lib/utils";
 
+/** Is this running in development? (inlined by Next — used for the OCR debug toggle) */
+const IS_DEV = process.env.NODE_ENV === "development";
+
+/**
+ * Client-side image resize/compress before OCR — oversized photos both slow
+ * down the Gemini call and can degrade OCR accuracy. Max width ~1600px, JPEG.
+ */
+async function resizeImage(dataUrl: string, maxWidth = 1600): Promise<string> {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = () => reject(new Error("Could not load image"));
+    im.src = dataUrl;
+  });
+  const scale = Math.min(1, maxWidth / img.width);
+  const width = Math.round(img.width * scale);
+  const height = Math.round(img.height * scale);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return dataUrl;
+  ctx.drawImage(img, 0, 0, width, height);
+
+  return canvas.toDataURL("image/jpeg", 0.85);
+}
+
 interface GroupOption {
   id: string;
+
   name: string;
+
 }
 interface Member {
   id: string;
@@ -36,6 +67,7 @@ interface Extracted {
   items: Array<{ label: string; amount: number }>;
   engine: string;
   anomalyPct: number | null;
+  needsReview?: boolean;
 }
 type SplitMode = "equal" | "custom" | "item";
 
@@ -58,6 +90,7 @@ export function ScanScreen({ groups }: { groups: GroupOption[] }) {
   const [customAmounts, setCustomAmounts] = React.useState<Record<string, string>>({});
   const [saving, setSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState<string | null>(null);
+  const [rawJson, setRawJson] = React.useState<string | null>(null);
   const [done, setDone] = React.useState(false);
 
   // Load members when a group is picked
@@ -87,15 +120,17 @@ export function ScanScreen({ groups }: { groups: GroupOption[] }) {
     const reader = new FileReader();
     reader.onload = async () => {
       const dataUrl = reader.result as string;
-      setImage(dataUrl);
+      const resized = await resizeImage(dataUrl);
+      setImage(resized);
+      setRawJson(null);
       setScanning(true);
       try {
         const res = await fetch("/api/ocr", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            imageBase64: dataUrl,
-            mimeType: file.type || "image/jpeg",
+            imageBase64: resized,
+            mimeType: "image/jpeg",
             groupId: groupId || undefined,
           }),
         });
@@ -109,7 +144,9 @@ export function ScanScreen({ groups }: { groups: GroupOption[] }) {
           items: data.items ?? [],
           engine: data.engine,
           anomalyPct: data.anomalyPct ?? null,
+          needsReview: Boolean(data.needsReview),
         });
+        setRawJson(data?.debug?.raw ?? null);
       } catch (e) {
         setScanError(e instanceof Error ? e.message : "Could not scan the bill");
       } finally {
@@ -317,10 +354,19 @@ export function ScanScreen({ groups }: { groups: GroupOption[] }) {
                   </motion.div>
                 ))}
 
-                {extracted.engine === "fallback" && (
-                  <p className="text-xs text-muted-foreground">
-                    AI couldn&apos;t read this clearly — please fill in the details.
+                {(extracted.engine === "fallback" || extracted.needsReview) && (
+                  <p className="text-xs font-medium text-warning">
+                    AI couldn&apos;t fully read this bill — please fill in totals manually.
                   </p>
+                )}
+
+                {IS_DEV && rawJson && (
+                  <details className="rounded-xl border border-dashed p-3 text-xs text-muted-foreground">
+                    <summary className="cursor-pointer select-none font-semibold">
+                      🐞 Debug: raw Gemini JSON
+                    </summary>
+                    <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all">{rawJson}</pre>
+                  </details>
                 )}
 
                 <PayerPicker

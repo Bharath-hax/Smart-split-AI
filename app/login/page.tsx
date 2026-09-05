@@ -15,18 +15,24 @@ export default function LoginPage() {
   const router = useRouter();
   const [name, setName] = React.useState("");
   const [phone, setPhone] = React.useState("");
+  const [email, setEmail] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    const cleanEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cleanEmail)) {
+      setError("Please enter a valid email address — it's used to send payment reminders.");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, phone }),
+        body: JSON.stringify({ name, phone, email: cleanEmail }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Login failed");
@@ -70,6 +76,13 @@ export default function LoginPage() {
             onChange={(e) => setPhone(e.target.value)}
             required
           />
+          <Input
+            placeholder="Email (for payment reminders)"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
           {error && <ErrorBanner message={error} />}
           <Button type="submit" className="w-full" size="lg" disabled={loading}>
             {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Continue"}
@@ -77,7 +90,7 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          No password needed — just name & phone for the demo.
+          No password needed — just name, phone & email for the demo.
         </p>
       </motion.div>
     </div>
