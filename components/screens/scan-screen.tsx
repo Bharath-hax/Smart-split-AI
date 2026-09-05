@@ -6,12 +6,10 @@ import {
   Camera,
   CheckCircle2,
   Loader2,
-  ScanLine,
   Sparkles,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { BottomSheet } from "@/components/bottom-sheet";
 import { ErrorBanner } from "@/components/empty-state";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";

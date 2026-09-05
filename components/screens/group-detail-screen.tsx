@@ -23,9 +23,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CATEGORY_EMOJI, CATEGORY_STYLES, type Category } from "@/lib/categorize";
-import type { Forecast, MonthlyRecap } from "@/lib/insights";
+import type { MonthlyRecap } from "@/lib/insights";
 import type { MemberBalance, Transfer } from "@/lib/settlement-algorithm";
-import { cn, formatINR, formatINRShort } from "@/lib/utils";
+import { formatINR, formatINRShort } from "@/lib/utils";
 
 interface GroupInfo {
   id: string;
