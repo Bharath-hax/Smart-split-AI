@@ -3,11 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { authGuard, isMember, jsonError } from "@/lib/api";
 import { createPaymentLink } from "@/lib/razorpay";
 import { generateReminderMessage } from "@/lib/gemini";
-import { googleOAuthConfigured } from "@/lib/google-auth";
 import {
   sendPaymentReminderEmail,
-  NEEDS_RECONNECT_MESSAGE,
-} from "@/lib/gmail-send";
+  isMailerConfigured,
+} from "@/lib/mailer";
 
 /**
  * GET /api/bills?groupId=... — list a group's bills with shares.
@@ -119,8 +118,8 @@ export async function POST(req: NextRequest) {
     // ── Auto-detect non-payers → debts + payment links + Gmail ──
     // Every member whose share exceeds what they paid owes the difference to
     // the primary payer. We create a Debt for each, attach a (test/demo)
-    // payment link, and — when the uploader has Gmail connected — send an
-    // automatic reminder email with the "Pay now" link right away.
+    // payment link, and — when email sending is configured on the server —
+    // send an automatic reminder email with the "Pay now" link right away.
     const reminders: Array<{
       debtId: string;
       debtorName: string;
@@ -129,10 +128,7 @@ export async function POST(req: NextRequest) {
       error?: string;
     }> = [];
     const claimErrors: string[] = [];
-    const sender = await prisma.user.findUnique({ where: { id: auth.user.id } });
-    const gmailConnected = Boolean(
-      sender?.gmailSendGranted && sender?.googleAccessToken
-    );
+    const emailEnabled = isMailerConfigured;
     const group = await prisma.group.findUnique({
       where: { id: groupId },
       select: { name: true },
@@ -214,9 +210,8 @@ export async function POST(req: NextRequest) {
           let channel: "email" | "in-app" = "in-app";
           let sendError: string | undefined;
 
-          if (gmailConnected && debtor.email && sender) {
-            const sent = await sendPaymentReminderEmail(sender, {
-              senderUserId: sender.id,
+          if (emailEnabled && debtor.email) {
+            const sent = await sendPaymentReminderEmail({
               toEmail: debtor.email,
               personName: debtor.name,
               amount: owing,
@@ -231,7 +226,7 @@ export async function POST(req: NextRequest) {
                 debtId: debt.id,
                 toEmail: debtor.email,
                 status: sent.ok ? "sent" : "failed",
-                gmailMessageId: sent.gmailMessageId ?? null,
+                gmailMessageId: sent.messageId ?? null,
                 errorMessage: sent.error ?? null,
               },
             });
@@ -240,10 +235,8 @@ export async function POST(req: NextRequest) {
             } else {
               sendError = sent.error;
             }
-          } else if (gmailConnected && !debtor.email) {
+          } else if (emailEnabled && !debtor.email) {
             sendError = "Debtor has no email on file";
-          } else if (!gmailConnected && googleOAuthConfigured()) {
-            sendError = NEEDS_RECONNECT_MESSAGE;
           }
 
           await prisma.debt.update({
@@ -288,7 +281,7 @@ export async function POST(req: NextRequest) {
       unpaidDetected: unpaidSplits.length,
       reminders,
       reminderErrors: claimErrors,
-      gmailConnected,
+      notificationsConfigured: isMailerConfigured,
     });
   } catch (e) {
     return jsonError(

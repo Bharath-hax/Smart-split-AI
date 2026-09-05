@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, LogOut, Mail, MailWarning, Moon, Sun, Wallet } from "lucide-react";
+import { CheckCircle2, LogOut, MailWarning, Moon, Sun, Wallet } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import * as React from "react";
@@ -8,32 +8,27 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
 /**
- * Profile tab: identity card, quick stats, Gmail connection (for automatic
- * payment reminder emails), theme toggle, logout.
+ * Profile tab: identity card, quick stats, email-reminder status (server-side
+ * config — nothing for the user to connect), theme toggle, logout.
  */
 export function ProfileScreen({
   name,
   phone,
   groupCount,
   billCount,
-  gmailConnected,
-  gmailEmail,
-  googleConfigured,
-  gmailStatus,
+  notificationsConfigured,
+  notificationEmail,
 }: {
   name: string;
   phone: string;
   groupCount: number;
   billCount: number;
-  gmailConnected: boolean;
-  gmailEmail: string | null;
-  googleConfigured: boolean;
-  gmailStatus: string | null;
+  notificationsConfigured: boolean;
+  notificationEmail: string | null;
 }) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
-  const [disconnecting, setDisconnecting] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
 
   async function logout() {
@@ -41,29 +36,6 @@ export function ProfileScreen({
     router.push("/login");
     router.refresh();
   }
-
-  async function disconnectGmail() {
-    setDisconnecting(true);
-    try {
-      await fetch("/api/google/disconnect", { method: "POST" });
-      router.refresh();
-    } finally {
-      setDisconnecting(false);
-    }
-  }
-
-  const gmailNotice =
-    gmailStatus === "connected"
-      ? "Gmail connected — automatic payment reminder emails are on."
-      : gmailStatus === "no-send-scope"
-        ? "Gmail connected but without send permission — reconnect to enable reminders."
-        : gmailStatus === "denied"
-          ? "Gmail permission was declined — reminders will be in-app only."
-          : gmailStatus === "not-configured"
-            ? "Google OAuth isn't configured on the server (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET)."
-            : gmailStatus === "error"
-              ? "Couldn't connect Gmail — please try again."
-              : null;
 
   return (
     <div className="space-y-5">
@@ -78,48 +50,30 @@ export function ProfileScreen({
         </div>
       </div>
 
-      {/* Gmail connection — powers automatic payment reminder emails */}
+      {/* Email reminders — automatic, no per-user connection needed */}
       <div className="rounded-2xl border bg-card p-4 shadow-sm">
         <div className="flex items-center gap-3">
-          {gmailConnected ? (
+          {notificationsConfigured ? (
             <CheckCircle2 className="h-5 w-5 text-success" />
           ) : (
             <MailWarning className="h-5 w-5 text-muted-foreground" />
           )}
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold">Gmail for reminders</p>
+            <p className="text-sm font-semibold">Automatic email reminders</p>
             <p className="truncate text-xs text-muted-foreground">
-              {gmailConnected
-                ? `Connected as ${gmailEmail}`
-                : googleConfigured
-                  ? "Connect to send automatic payment reminder emails"
-                  : "Server-side Google OAuth not configured"}
+              {notificationsConfigured
+                ? notificationEmail
+                  ? `Sent by the app from ${notificationEmail}`
+                  : "Email reminders are on"
+                : "Server email isn't configured (NOTIFICATION_EMAIL / NOTIFICATION_EMAIL_APP_PASSWORD)"}
             </p>
           </div>
         </div>
-        {gmailNotice && (
-          <p className="mt-2 rounded-lg bg-accent p-2 text-xs text-accent-foreground">
-            {gmailNotice}
-          </p>
-        )}
-        {googleConfigured &&
-          (gmailConnected ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-3 w-full"
-              onClick={disconnectGmail}
-              disabled={disconnecting}
-            >
-              {disconnecting ? "Disconnecting…" : "Disconnect Gmail"}
-            </Button>
-          ) : (
-            <a href="/api/google/connect" className="tap-highlight-none mt-3 block">
-              <Button size="sm" className="w-full">
-                <Mail className="h-4 w-4" /> Connect Gmail
-              </Button>
-            </a>
-          ))}
+        <p className="mt-2 rounded-lg bg-accent p-2 text-xs text-accent-foreground">
+          {notificationsConfigured
+            ? "When a bill is split, everyone who hasn't paid their share gets an email with a payment link — no setup needed on your side."
+            : "Reminders still work in-app (with a copyable message) until the server has a notification email configured."}
+        </p>
       </div>
 
       {/* Stats */}

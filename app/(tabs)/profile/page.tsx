@@ -1,20 +1,15 @@
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { ProfileScreen } from "@/components/screens/profile-screen";
-import { googleOAuthConfigured } from "@/lib/google-auth";
+import { isMailerConfigured } from "@/lib/mailer";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Profile tab — user info + stats + Gmail connection + theme/settings.
+ * Profile tab — user info + stats + email-reminder status + theme/settings.
  */
-export default async function ProfilePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ gmail?: string }>;
-}) {
+export default async function ProfilePage() {
   const user = await requireUser();
-  const { gmail: gmailStatus } = await searchParams;
   const [groupCount, billCount] = user
     ? await Promise.all([
         prisma.membership.count({ where: { userId: user.id } }),
@@ -28,10 +23,8 @@ export default async function ProfilePage({
       phone={user?.phone ?? ""}
       groupCount={groupCount}
       billCount={billCount}
-      gmailConnected={Boolean(user?.gmailSendGranted)}
-      gmailEmail={user?.googleEmail ?? null}
-      googleConfigured={googleOAuthConfigured()}
-      gmailStatus={gmailStatus ?? null}
+      notificationsConfigured={isMailerConfigured}
+      notificationEmail={process.env.NOTIFICATION_EMAIL ?? null}
     />
   );
 }

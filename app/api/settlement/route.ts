@@ -6,9 +6,8 @@ import { createPaymentLink, razorpayConfigured } from "@/lib/razorpay";
 import { generateReminderMessage } from "@/lib/gemini";
 import {
   sendPaymentReminderEmail,
-  NEEDS_RECONNECT_MESSAGE,
-} from "@/lib/gmail-send";
-import { googleOAuthConfigured } from "@/lib/google-auth";
+  isMailerConfigured,
+} from "@/lib/mailer";
 
 /**
  * GET /api/settlement?groupId=... — compute net balances + the minimal
@@ -186,24 +185,10 @@ export async function POST(req: NextRequest) {
     // ── Fully-automatic smart EMAIL reminders ─────────────────────────────
     // Fires the instant payment links exist (part of this same save action —
     // no button click per debtor). Each email is written by Gemini and sent
-    // via the Gmail API from the bill-creator's own connected Gmail account.
-    // If the sender hasn't connected Gmail (or a debtor has no email on
-    // file), the message is stored and shown in-app as a copyable fallback.
-    const sender = await prisma.user.findUnique({
-      where: { id: auth.user.id },
-      select: {
-        id: true,
-        name: true,
-        googleEmail: true,
-        googleAccessToken: true,
-        googleRefreshToken: true,
-        googleTokenExpiry: true,
-        gmailSendGranted: true,
-      },
-    });
-    const gmailConnected = Boolean(
-      sender?.gmailSendGranted && sender?.googleAccessToken
-    );
+    // from the app's dedicated notification account (Nodemailer + App
+    // Password — no per-user Google auth involved). If a debtor has no email
+    // on file, the message is stored and shown in-app as a copyable fallback.
+    const emailEnabled = isMailerConfigured;
 
     const reminders: Array<{
       debtId: string;
@@ -234,9 +219,8 @@ export async function POST(req: NextRequest) {
         let channel: "email" | "in-app" = "in-app";
         let sendError: string | undefined;
 
-        if (gmailConnected && d.email && sender) {
-          const sent = await sendPaymentReminderEmail(sender, {
-            senderUserId: sender.id,
+        if (emailEnabled && d.email) {
+          const sent = await sendPaymentReminderEmail({
             toEmail: d.email,
             personName: d.debtorName,
             amount: d.amount,
@@ -251,7 +235,7 @@ export async function POST(req: NextRequest) {
               debtId: d.id,
               toEmail: d.email,
               status: sent.ok ? "sent" : "failed",
-              gmailMessageId: sent.gmailMessageId ?? null,
+              gmailMessageId: sent.messageId ?? null,
               errorMessage: sent.error ?? null,
             },
           });
@@ -260,10 +244,8 @@ export async function POST(req: NextRequest) {
           } else {
             sendError = sent.error;
           }
-        } else if (gmailConnected && !d.email) {
+        } else if (emailEnabled && !d.email) {
           sendError = "Debtor has no email on file";
-        } else if (!gmailConnected && googleOAuthConfigured()) {
-          sendError = NEEDS_RECONNECT_MESSAGE;
         }
 
         await prisma.debt.update({
@@ -307,8 +289,7 @@ export async function POST(req: NextRequest) {
       created,
       errors,
       reminders,
-      gmailConnected,
-      googleConfigured: googleOAuthConfigured(),
+      notificationsConfigured: isMailerConfigured,
     });
   } catch (e) {
     return jsonError(
