@@ -1,0 +1,13 @@
+
+> splitsettle-ai@2.0.0 dev
+> next dev
+
+  ▲ Next.js 14.2.15
+  - Local:        http://localhost:3000
+  - Environments: .env
+
+ ✓ Starting...
+ ✓ Ready in 2.2s
+ ○ Compiling /login ...
+ ✓ Compiled /login in 4.1s (1207 modules)
+ GET /login 200 in 4323ms

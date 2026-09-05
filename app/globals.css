@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 99%;
+    --foreground: 240 10% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 8%;
+    --primary: 263 70% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 5% 94%;
+    --secondary-foreground: 240 6% 12%;
+    --muted: 240 5% 95%;
+    --muted-foreground: 240 4% 44%;
+    --accent: 263 70% 96%;
+    --accent-foreground: 263 70% 36%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 66% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 44%;
+    --warning-foreground: 0 0% 100%;
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 263 70% 50%;
+    --radius: 1rem;
+  }
+
+  .dark {
+    --background: 240 10% 6%;
+    --foreground: 0 0% 96%;
+    --card: 240 8% 10%;
+    --card-foreground: 0 0% 96%;
+    --primary: 263 85% 66%;
+    --primary-foreground: 263 60% 12%;
+    --secondary: 240 6% 16%;
+    --secondary-foreground: 0 0% 92%;
+    --muted: 240 6% 14%;
+    --muted-foreground: 240 4% 60%;
+    --accent: 263 40% 22%;
+    --accent-foreground: 263 80% 82%;
+    --destructive: 0 62% 44%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 60% 42%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 52%;
+    --warning-foreground: 240 10% 8%;
+    --border: 240 6% 18%;
+    --input: 240 6% 18%;
+    --ring: 263 85% 66%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+    overscroll-behavior-y: none;
+  }
+
+  /* hide scrollbars for the app feel, keep scrollability */
+  ::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}
+
+@layer utilities {
+  .safe-bottom {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
+  }
+  .tap-highlight-none {
+    -webkit-tap-highlight-color: transparent;
+  }
+}

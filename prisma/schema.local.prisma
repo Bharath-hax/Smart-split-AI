@@ -1,0 +1,113 @@
+// SplitSettle AI — LOCAL DEV schema (SQLite, zero-setup)
+// Used by `npm run db:push:local`. Production keeps prisma/schema.prisma (Postgres/Supabase).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String       @id @default(cuid())
+  name           String
+  phone          String       @unique
+  createdAt      DateTime     @default(now())
+  memberships    Membership[]
+  uploadedBills  Bill[]       @relation("Uploader")
+  shares         BillShare[]
+  debtsOwed      Debt[]       @relation("Debtor")
+  debtsToCollect Debt[]       @relation("Creditor")
+  activities     Activity[]
+  groupsCreated  Group[]      @relation("Creator")
+}
+
+model Group {
+  id          String       @id @default(cuid())
+  name        String
+  code        String       @unique
+  createdById String
+  creator     User         @relation("Creator", fields: [createdById], references: [id])
+  createdAt   DateTime     @default(now())
+  members     Membership[]
+  bills       Bill[]
+  debts       Debt[]
+  activities  Activity[]
+}
+
+model Membership {
+  id       String   @id @default(cuid())
+  group    Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId  String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String
+  role     String   @default("member")
+  joinedAt DateTime @default(now())
+
+  @@unique([groupId, userId])
+}
+
+model Bill {
+  id         String      @id @default(cuid())
+  group      Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId    String
+  uploader   User        @relation("Uploader", fields: [uploaderId], references: [id])
+  uploaderId String
+  vendor     String
+  category   String      @default("Other")
+  total      Float
+  billDate   DateTime
+  items      String? // JSON-encoded [{ label, amount }]
+  anomalyPct Float?
+  shares     BillShare[]
+  debts      Debt[]
+  createdAt  DateTime    @default(now())
+}
+
+model BillShare {
+  id     String @id @default(cuid())
+  bill   Bill   @relation(fields: [billId], references: [id], onDelete: Cascade)
+  billId String
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+  paid   Float  @default(0)
+  share  Float  @default(0)
+
+  @@unique([billId, userId])
+}
+
+model Debt {
+  id            String    @id @default(cuid())
+  group         Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId       String
+  bill          Bill?     @relation(fields: [billId], references: [id])
+  billId        String?
+  debtor        User      @relation("Debtor", fields: [debtorId], references: [id])
+  debtorId      String
+  creditor      User      @relation("Creditor", fields: [creditorId], references: [id])
+  creditorId    String
+  amount        Float
+  status        String    @default("pending")
+  paymentLinkId String?   @unique
+  paymentUrl    String?
+  settledAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([groupId, status])
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  groupId   String
+  type      String
+  actor     User?    @relation(fields: [actorId], references: [id])
+  actorId   String?
+  message   String
+  meta      String? // JSON-encoded extra payload
+  createdAt DateTime @default(now())
+
+  @@index([groupId, createdAt])
+}
