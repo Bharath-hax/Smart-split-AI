@@ -1,6 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { authGuard, isMember, jsonError } from "@/lib/api";
+import { createPaymentLink } from "@/lib/razorpay";
+import { generateReminderMessage } from "@/lib/gemini";
+import { googleOAuthConfigured } from "@/lib/google-auth";
+import {
+  sendPaymentReminderEmail,
+  NEEDS_RECONNECT_MESSAGE,
+} from "@/lib/gmail-send";
 
 /**
  * GET /api/bills?groupId=... — list a group's bills with shares.
@@ -109,7 +116,180 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ bill });
+    // ── Auto-detect non-payers → debts + payment links + Gmail ──
+    // Every member whose share exceeds what they paid owes the difference to
+    // the primary payer. We create a Debt for each, attach a (test/demo)
+    // payment link, and — when the uploader has Gmail connected — send an
+    // automatic reminder email with the "Pay now" link right away.
+    const reminders: Array<{
+      debtId: string;
+      debtorName: string;
+      channel: "email" | "in-app";
+      message: string;
+      error?: string;
+    }> = [];
+    const claimErrors: string[] = [];
+    const sender = await prisma.user.findUnique({ where: { id: auth.user.id } });
+    const gmailConnected = Boolean(
+      sender?.gmailSendGranted && sender?.googleAccessToken
+    );
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+      select: { name: true },
+    });
+    const unpaidSplits = validSplits.filter(
+      (s) => (Number(s.share) || 0) - (Number(s.paid) || 0) > 0.01
+    );
+    const primaryPayer = validSplits
+      .filter((s) => (Number(s.paid) || 0) > 0)
+      .sort((a, b) => (Number(b.paid) || 0) - (Number(a.paid) || 0))[0];
+
+    if (group && primaryPayer && unpaidSplits.length > 0) {
+      const members = await prisma.membership.findMany({
+        where: { groupId },
+        include: {
+          user: { select: { id: true, name: true, email: true, phone: true } },
+        },
+      });
+      const memberById = new Map(members.map((m) => [m.user.id, m.user]));
+      const payerName = memberById.get(primaryPayer.userId)?.name ?? "a friend";
+
+      for (const s of unpaidSplits) {
+        if (s.userId === primaryPayer.userId) continue; // can't owe yourself
+        const debtor = memberById.get(s.userId);
+        if (!debtor) continue;
+        const owing = Math.round(
+          ((Number(s.share) || 0) - (Number(s.paid) || 0)) * 100
+        ) / 100;
+        if (owing <= 0.01) continue;
+
+        let paymentLinkId: string | null = null;
+        let paymentUrl: string | null = null;
+        try {
+          const link = await createPaymentLink({
+            amount: owing,
+            debtorName: debtor.name,
+            debtorContact: debtor.phone,
+            groupName: group.name,
+            description: `${vendor.trim()}: settle ${owing.toFixed(2)} to ${payerName}`,
+          });
+          paymentLinkId = link.id;
+          paymentUrl = link.url;
+        } catch (e) {
+          claimErrors.push(
+            `Link for ${debtor.name} failed: ${
+              e instanceof Error ? e.message : "unknown"
+            }`
+          );
+        }
+
+        const debt = await prisma.debt.create({
+          data: {
+            groupId,
+            billId: bill.id,
+            debtorId: s.userId,
+            creditorId: primaryPayer.userId,
+            amount: owing,
+            paymentLinkId,
+            paymentUrl,
+          },
+        });
+// Automatic Gmail reminder to the non-payer (falls back to in-app)
+        try {
+          const gen = await generateReminderMessage(
+            debtor.name,
+            payerName,
+            group.name,
+            owing,
+            0
+          );
+          let message = gen.data ?? "";
+          const hasRealLink = paymentUrl && !paymentUrl.startsWith("#");
+          if (hasRealLink) {
+            message += `\n\nPay securely here: ${paymentUrl}`;
+          } else if (paymentUrl) {
+            message += "\n\n(Open the app to use your demo payment link.)";
+          }
+
+          let channel: "email" | "in-app" = "in-app";
+          let sendError: string | undefined;
+
+          if (gmailConnected && debtor.email && sender) {
+            const sent = await sendPaymentReminderEmail(sender, {
+              senderUserId: sender.id,
+              toEmail: debtor.email,
+              personName: debtor.name,
+              amount: owing,
+              paymentLink: paymentUrl,
+              urgencyLevel: "gentle",
+              groupName: group.name,
+              creditorName: payerName,
+              message,
+            });
+            await prisma.emailLog.create({
+              data: {
+                debtId: debt.id,
+                toEmail: debtor.email,
+                status: sent.ok ? "sent" : "failed",
+                gmailMessageId: sent.gmailMessageId ?? null,
+                errorMessage: sent.error ?? null,
+              },
+            });
+            if (sent.ok) {
+              channel = "email";
+            } else {
+              sendError = sent.error;
+            }
+          } else if (gmailConnected && !debtor.email) {
+            sendError = "Debtor has no email on file";
+          } else if (!gmailConnected && googleOAuthConfigured()) {
+            sendError = NEEDS_RECONNECT_MESSAGE;
+          }
+
+          await prisma.debt.update({
+            where: { id: debt.id },
+            data: {
+              lastReminderMessage: message,
+              ...(channel === "email" ? { reminderSentAt: new Date() } : {}),
+            },
+          });
+
+          reminders.push({
+            debtId: debt.id,
+            debtorName: debtor.name,
+            channel,
+            message,
+            error: sendError,
+          });
+        } catch (e) {
+          claimErrors.push(
+            `Auto-reminder for ${debtor.name} failed: ${
+              e instanceof Error ? e.message : "unknown"
+            }`
+          );
+        }
+      }
+
+      await prisma.activity.create({
+        data: {
+          groupId,
+          type: "settlement",
+          actorId: auth.user.id,
+          message: `${auth.user.name} detected ${unpaidSplits.length} unpaid share${
+            unpaidSplits.length === 1 ? "" : "s"
+          } on “${bill.vendor}” and sent payment reminders`,
+          meta: JSON.stringify({ billId: bill.id, unpaid: unpaidSplits.length }),
+        },
+      });
+    }
+
+    return NextResponse.json({
+      bill,
+      unpaidDetected: unpaidSplits.length,
+      reminders,
+      reminderErrors: claimErrors,
+      gmailConnected,
+    });
   } catch (e) {
     return jsonError(
       `Could not save bill: ${e instanceof Error ? e.message : "unknown"}`,

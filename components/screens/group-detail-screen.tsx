@@ -274,44 +274,50 @@ function SettlementBody({
     <>
       {recap && <RecapCard recap={recap} />}
 
-      <div className="rounded-2xl border bg-card p-4 shadow-sm">
-        <h2 className="mb-3 font-bold">Net balances</h2>
-        <BalanceList balances={settlement.balances} />
-      </div>
+      {/* Balances + settle-up only make sense once real bills exist; a fresh
+          group with 0 bills should NOT claim "everyone is settled up". */}
+      {bills.length > 0 && (
+        <>
+          <div className="rounded-2xl border bg-card p-4 shadow-sm">
+            <h2 className="mb-3 font-bold">Net balances</h2>
+            <BalanceList balances={settlement.balances} />
+          </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-bold">Settle up</h2>
-          <button
-            onClick={onRefresh}
-            className="tap-highlight-none flex items-center gap-1 text-xs text-muted-foreground"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> live · 5s
-          </button>
-        </div>
-        <SettlementGraph
-          balances={settlement.balances}
-          transfers={settlement.transfers}
-          naiveCount={settlement.stats.naiveCount}
-        />
-        {settlement.transfers.length > 0 && (
-          <div className="flex gap-2">
-            <Button className="flex-1" disabled={settling} onClick={() => onSettle(true)}>
-              {settling ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Wand2 className="h-4 w-4" />
-              )}
-              Settle up {settlement.razorpayEnabled ? "(Razorpay)" : "(demo links)"}
-            </Button>
-            {settlement.debts.some((d) => d.status === "pending" && !d.paymentUrl) && (
-              <Button variant="outline" disabled={settling} onClick={onLinks}>
-                <ExternalLink className="h-4 w-4" /> Get links
-              </Button>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold">Settle up</h2>
+              <button
+                onClick={onRefresh}
+                className="tap-highlight-none flex items-center gap-1 text-xs text-muted-foreground"
+              >
+                <RefreshCw className="h-3.5 w-3.5" /> live · 5s
+              </button>
+            </div>
+            <SettlementGraph
+              balances={settlement.balances}
+              transfers={settlement.transfers}
+              naiveCount={settlement.stats.naiveCount}
+            />
+            {settlement.transfers.length > 0 && (
+              <div className="flex gap-2">
+                <Button className="flex-1" disabled={settling} onClick={() => onSettle(true)}>
+                  {settling ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wand2 className="h-4 w-4" />
+                  )}
+                  Settle up {settlement.razorpayEnabled ? "(Razorpay)" : "(demo links)"}
+                </Button>
+                {settlement.debts.some((d) => d.status === "pending" && !d.paymentUrl) && (
+                  <Button variant="outline" disabled={settling} onClick={onLinks}>
+                    <ExternalLink className="h-4 w-4" /> Get links
+                  </Button>
+                )}
+              </div>
             )}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       <DebtList
         debts={settlement.debts}
