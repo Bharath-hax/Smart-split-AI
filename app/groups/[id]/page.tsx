@@ -39,24 +39,26 @@ export default async function GroupDetailPage({
   if (!group) notFound();
 
   return (
-    <GroupDetailScreen
-      group={{ id: group.id, name: group.name, code: group.code }}
-      members={group.members.map((m) => m.user)}
-      bills={group.bills.map((b) => ({
-        id: b.id,
-        vendor: b.vendor,
-        category: b.category,
-        total: b.total,
-        date: b.billDate.toISOString(),
-        paidBy: b.uploader.name,
-        anomalyPct: b.anomalyPct,
-        shares: b.shares.map((s) => ({
-          userId: s.user.id,
-          name: s.user.name,
-          paid: s.paid,
-          share: s.share,
-        })),
-      }))}
-    />
+    <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col px-4 pt-1 safe-bottom">
+      <GroupDetailScreen
+        group={{ id: group.id, name: group.name, code: group.code }}
+        members={group.members.map((m) => m.user)}
+        bills={group.bills.map((b) => ({
+          id: b.id,
+          vendor: b.vendor,
+          category: b.category,
+          total: b.total,
+          date: b.billDate.toISOString(),
+          paidBy: b.uploader.name,
+          anomalyPct: b.anomalyPct,
+          shares: b.shares.map((s) => ({
+            userId: s.user.id,
+            name: s.user.name,
+            paid: s.paid,
+            share: s.share,
+          })),
+        }))}
+      />
+    </div>
   );
 }
