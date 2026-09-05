@@ -2,6 +2,24 @@
 
 **Scan bills with AI. Split fairly. Settle in the fewest payments.**
 
+<p align="center">
+
+<a href="https://splite-settle-ai-bk3165843-5971s-projects.vercel.app">
+  <img src="https://img.shields.io/badge/🚀-TRY%20IT%20OUT%20—%20Live%20Demo-ff6b6b?style=for-the-badge&labelColor=111827&logoColor=white" alt="🚀 Try It Out — Live Demo">
+</a>
+
+&nbsp;
+
+<a href="https://splite-settle-ai-bk3165843-5971s-projects.vercel.app">
+  <img src="https://img.shields.io/badge/📱-PWA%20App%20—%20Add%20to%20Home%20Screen-10b981?style=for-the-badge&labelColor=111827&logoColor=white" alt="📱 PWA App — Add to Home Screen">
+</a>
+
+</p>
+
+> 🚀 **Live Demo deployed on Vercel** — Scan a real bill with AI (Gemini Vision OCR), split it fairly across your group, and settle with the fewest possible payments. Built with Next.js 14, Supabase, Prisma, Gemini, and Razorpay. Tap the button above and give it a spin — no signup required! 👇
+
+---
+
 A mobile-first **PWA** (installable, Add-to-Home-Screen) built with **Next.js 14 + TypeScript + Tailwind + shadcn/ui**, backed by **Supabase Postgres + Prisma**, with **Gemini** vision OCR, a **minimum-transaction settlement algorithm**, and **Razorpay test-mode payment links** with a live webhook.
 
 > The headline: instead of naive pairwise refunds, SplitSettle computes each person's net balance and greedily matches the largest debtor to the largest creditor â€” collapsing an O(nÂ²) debt graph into at most nâˆ’1 real payments. The UI shows the "before â†’ after" so judges can see it.
