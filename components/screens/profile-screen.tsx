@@ -5,6 +5,7 @@ import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -50,41 +51,54 @@ export function ProfileScreen({
         </div>
       </div>
 
-      {/* Email reminders — automatic, no per-user connection needed */}
+      {/* Email reminders — calm info row; config internals never shown to users */}
       <div className="rounded-2xl border bg-card p-4 shadow-sm">
         <div className="flex items-center gap-3">
           {notificationsConfigured ? (
-            <CheckCircle2 className="h-5 w-5 text-success" />
+            <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
           ) : (
-            <MailWarning className="h-5 w-5 text-muted-foreground" />
+            <MailWarning className="h-5 w-5 shrink-0 text-muted-foreground" />
           )}
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold">Automatic email reminders</p>
-            <p className="truncate text-xs text-muted-foreground">
+            <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
               {notificationsConfigured
                 ? notificationEmail
-                  ? `Sent by the app from ${notificationEmail}`
-                  : "Email reminders are on"
-                : "Server email isn't configured (NOTIFICATION_EMAIL / NOTIFICATION_EMAIL_APP_PASSWORD)"}
+                  ? `On — reminders are sent from ${notificationEmail}`
+                  : "On — everyone gets a payment link by email when a bill is split."
+                : "Get automatic payment reminders by email when a bill is split."}
             </p>
           </div>
+          <Badge
+            className={
+              notificationsConfigured
+                ? "bg-success/15 text-success"
+                : "border border-dashed text-muted-foreground"
+            }
+          >
+            {notificationsConfigured ? "On" : "Set up"}
+          </Badge>
         </div>
-        <p className="mt-2 rounded-lg bg-accent p-2 text-xs text-accent-foreground">
-          {notificationsConfigured
-            ? "When a bill is split, everyone who hasn't paid their share gets an email with a payment link — no setup needed on your side."
-            : "Reminders still work in-app (with a copyable message) until the server has a notification email configured."}
-        </p>
+        {!notificationsConfigured && (
+          <p className="mt-2 rounded-lg bg-accent p-2 text-xs leading-relaxed text-accent-foreground">
+            Until email reminders are set up, smart reminders still work in-app with a copyable message.
+          </p>
+        )}
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl border bg-card p-4 text-center shadow-sm">
           <p className="text-2xl font-extrabold text-primary">{groupCount}</p>
-          <p className="text-xs text-muted-foreground">groups</p>
+          <p className="text-xs text-muted-foreground">
+            {groupCount === 1 ? "group" : "groups"}
+          </p>
         </div>
         <div className="rounded-2xl border bg-card p-4 text-center shadow-sm">
           <p className="text-2xl font-extrabold text-primary">{billCount}</p>
-          <p className="text-xs text-muted-foreground">bills split</p>
+          <p className="text-xs text-muted-foreground">
+            {billCount === 1 ? "bill split" : "bills split"}
+          </p>
         </div>
       </div>
 

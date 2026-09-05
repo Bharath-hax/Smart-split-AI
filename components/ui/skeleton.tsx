@@ -2,12 +2,13 @@ import { cn } from "@/lib/utils";
 import * as React from "react";
 
 /**
- * Pulsing placeholder block used for all loading states.
+ * Gentle shimmer placeholder used for all loading states — reads as
+ * "content is on its way", never as a stuck gray block.
  */
 export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("animate-pulse rounded-xl bg-muted", className)}
+      className={cn("shimmer rounded-xl bg-muted", className)}
       {...props}
     />
   );

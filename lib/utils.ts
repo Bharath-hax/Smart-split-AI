@@ -2,6 +2,14 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 /**
+ * Pluralize a count + noun, e.g. plural(1, "member") -> "1 member",
+ * plural(3, "bill") -> "3 bills". Pass a custom plural form when needed.
+ */
+export function plural(n: number, singular: string, pluralForm?: string): string {
+  return `${n} ${n === 1 ? singular : (pluralForm ?? `${singular}s`)}`;
+}
+
+/**
  * Merge Tailwind class names, resolving conflicts (shadcn convention).
  */
 export function cn(...inputs: ClassValue[]) {

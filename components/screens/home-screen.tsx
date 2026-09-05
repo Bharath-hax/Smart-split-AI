@@ -131,9 +131,14 @@ function ForecastCard({
           </span>
         </p>
       ) : (
-        <p className="mt-2 text-sm text-muted-foreground">
-          Add a few bills and I&apos;ll start projecting your month.
-        </p>
+        /* designed empty state — distinct from the shimmer, which only shows
+           while the network request is genuinely in flight */
+        <div className="mt-3 flex items-center gap-3 rounded-xl bg-accent/60 p-3">
+          <TrendingUp className="h-4 w-4 shrink-0 text-primary" />
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Add a few more bills to see your spending forecast.
+          </p>
+        </div>
       )}
     </motion.div>
   );
@@ -212,7 +217,7 @@ function GroupList({ groups }: { groups: GroupSummary[] }) {
                 <div>
                   <p className="font-semibold">{g.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {g.memberCount} members · {g.billCount} bills
+                    {g.memberCount} member{g.memberCount !== 1 ? "s" : ""} · {g.billCount} bill{g.billCount !== 1 ? "s" : ""}
                   </p>
                 </div>
                 <ArrowRight className="h-4 w-4 text-muted-foreground" />

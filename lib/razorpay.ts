@@ -39,8 +39,12 @@ export async function createPaymentLink(params: {
   const amountPaise = Math.round(params.amount * 100);
 
   if (!razorpayConfigured()) {
+    // Dev-facing detail in logs; user-facing copy stays friendly.
+    console.error(
+      "Razorpay is not configured: set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET"
+    );
     throw new Error(
-      "Razorpay is not configured: set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET (from the Razorpay dashboard) to create real payment links"
+      "Online payments aren't set up yet — payment links will be available soon."
     );
   }
 

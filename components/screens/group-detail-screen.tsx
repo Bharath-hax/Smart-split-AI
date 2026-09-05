@@ -492,13 +492,11 @@ function DebtList({
                   <div className="rounded-xl bg-accent p-3 text-xs text-accent-foreground">
                     <p className="flex items-center gap-1.5 font-medium text-destructive">
                       <XCircle className="h-3.5 w-3.5" />
-                      Failed to send reminder email
+                      Couldn&apos;t send the reminder email
                     </p>
-                    {d.lastEmail.error && (
-                      <p className="mt-1 leading-relaxed text-muted-foreground">
-                        {d.lastEmail.error}
-                      </p>
-                    )}
+                    <p className="mt-1 leading-relaxed text-muted-foreground">
+                      Check the address on this member&apos;s profile, or tap Smart reminder to try again.
+                    </p>
                   </div>
                 ) : d.lastReminderMessage ? (
                   <div className="rounded-xl bg-accent p-3 text-sm text-accent-foreground">

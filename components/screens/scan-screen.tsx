@@ -8,7 +8,7 @@ import {
   Loader2,
   Sparkles,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { ErrorBanner } from "@/components/empty-state";
 import { Avatar } from "@/components/ui/avatar";
@@ -75,9 +75,14 @@ type SplitMode = "equal" | "custom" | "item";
  */
 export function ScanScreen({ groups }: { groups: GroupOption[] }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const fileRef = React.useRef<HTMLInputElement>(null);
   const [image, setImage] = React.useState<string | null>(null);
-  const [groupId, setGroupId] = React.useState(groups[0]?.id ?? "");
+  // Pre-select a group when arriving via /scan?groupId=… (e.g. from a group card)
+  const [groupId, setGroupId] = React.useState(() => {
+    const pre = searchParams.get("groupId");
+    return pre && groups.some((g) => g.id === pre) ? pre : (groups[0]?.id ?? "");
+  });
   const [scanning, setScanning] = React.useState(false);
   const [scanError, setScanError] = React.useState<string | null>(null);
   const [extracted, setExtracted] = React.useState<Extracted | null>(null);

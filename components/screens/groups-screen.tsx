@@ -98,20 +98,35 @@ export function GroupsScreen({ groups }: { groups: GroupItem[] }) {
       ) : (
         <div className="space-y-2">
           {list.map((g) => (
-            <Link key={g.id} href={`/groups/${g.id}`} className="tap-highlight-none block">
-              <motion.div
-                whileTap={{ scale: 0.98 }}
-                className="flex items-center justify-between rounded-2xl border bg-card p-4 shadow-sm"
-              >
-                <div>
-                  <p className="font-semibold">{g.name}</p>
+            <div key={g.id}>
+              <Link href={`/groups/${g.id}`} className="tap-highlight-none block">
+                <motion.div
+                  whileTap={{ scale: 0.98 }}
+                  className="flex items-center justify-between rounded-2xl border bg-card p-4 shadow-sm"
+                >
+                  <div>
+                    <p className="font-semibold">{g.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {g.memberCount} member{g.memberCount !== 1 ? "s" : ""} · {g.billCount} bill{g.billCount !== 1 ? "s" : ""} · code {g.code}
+                    </p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                </motion.div>
+              </Link>
+              {g.billCount === 0 && (
+                <div className="mt-1.5 flex items-center justify-between gap-2 rounded-xl border border-dashed px-3 py-2">
                   <p className="text-xs text-muted-foreground">
-                    {g.memberCount} members · {g.billCount} bills · code {g.code}
+                    No bills yet — scan your first one
                   </p>
+                  <Link
+                    href={`/scan?groupId=${g.id}`}
+                    className="tap-highlight-none shrink-0 rounded-lg bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary transition-colors active:bg-primary/20"
+                  >
+                    Scan
+                  </Link>
                 </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground" />
-              </motion.div>
-            </Link>
+              )}
+            </div>
           ))}
         </div>
       )}

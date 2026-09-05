@@ -16,7 +16,7 @@ export function RecapCard({ recap }: { recap: MonthlyRecap }) {
   const [shared, setShared] = React.useState(false);
 
   async function share() {
-    const text = `${recap.headline}\n\n${recap.billCount} bills • top spender: ${recap.topSpender}\n— SplitSettle AI`;
+    const text = `${recap.headline}\n\n${recap.billCount} ${recap.billCount === 1 ? "bill" : "bills"} • top spender: ${recap.topSpender}\n— SplitSettle AI`;
     try {
       if (navigator.share) {
         await navigator.share({ title: `${recap.monthLabel} recap`, text });

@@ -144,6 +144,11 @@ export function ActivityScreen({ groups }: { groups: GroupOption[] }) {
                 );
               })}
             </AnimatePresence>
+            {items.length === 1 && (
+              <p className="px-2 pt-1 text-center text-xs text-muted-foreground">
+                Your group&apos;s activity will show up here as bills are added.
+              </p>
+            )}
           </div>
         )}
       </PullToRefresh>
