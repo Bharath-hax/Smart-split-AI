@@ -1,7 +1,7 @@
 /**
  * Razorpay payment-link client (Test/Sandbox mode only).
- * Gracefully degrades to mock links when no keys are configured so the
- * whole flow stays demoable without credentials.
+ * Always creates REAL Razorpay payment links — there is no mock/demo mode.
+ * If credentials are missing or invalid, link creation throws a clear error.
  */
 import { createHmac, timingSafeEqual } from "crypto";
 
@@ -27,8 +27,7 @@ export function razorpayConfigured(): boolean {
 
 /**
  * Create a Razorpay test-mode payment link.
- * Returns { id, url, mock } — mock=true when credentials are absent and a
- * placeholder link is generated instead.
+ * Returns { id, url } — throws when credentials are missing/invalid.
  */
 export async function createPaymentLink(params: {
   amount: number; // rupees
@@ -36,16 +35,13 @@ export async function createPaymentLink(params: {
   debtorContact?: string | null;
   groupName: string;
   description: string;
-}): Promise<{ id: string; url: string; mock: boolean }> {
+}): Promise<{ id: string; url: string }> {
   const amountPaise = Math.round(params.amount * 100);
 
   if (!razorpayConfigured()) {
-    // Mock mode — keeps the demo flow working without keys
-    return {
-      id: `mock_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      url: `#mock-pay-${amountPaise}`,
-      mock: true,
-    };
+    throw new Error(
+      "Razorpay is not configured: set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET (from the Razorpay dashboard) to create real payment links"
+    );
   }
 
   try {
@@ -72,7 +68,6 @@ export async function createPaymentLink(params: {
     return {
       id: link.id,
       url: link.short_url || `https://rzp.io/i/${link.id}`,
-      mock: false,
     };
   } catch (e) {
     throw new Error(

@@ -26,7 +26,7 @@ A mobile-first **PWA** (installable, Add-to-Home-Screen) built with **Next.js 14
 | 12 | **Monthly recap** shareable card | Group detail |
 | 13 | **Fair-split forecast** â€” "at this rate you'll owe ~â‚¹X by month end" | `/home` |
 
-Everything degrades gracefully: no Gemini key â†’ manual entry + keyword categories + template insights. No Razorpay keys â†’ mock payment links. The app is always demoable.
+Everything degrades gracefully: no Gemini key â†’ manual entry + keyword categories + template insights. No Razorpay keys â†’ real Razorpay payment links (2-minute setup).
 
 ---
 
@@ -95,7 +95,7 @@ Open it on your phone via your LAN IP (e.g. `http://192.168.x.x:3000`) for the r
 | `RAZORPAY_WEBHOOK_SECRET` | You choose it when creating the webhook (see below) | For live settling |
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` locally, your Vercel URL in prod | âœ… |
 
-> No keys at all? The app still runs: OCR falls back to a manual form, categories come from a keyword classifier, and payment links are simulated. Great for UI rehearsal.
+> No keys at all? The app still runs: OCR falls back to a manual form, categories come from a keyword classifier, and the app tells you exactly which key to add when one is missing.
 
 ## 📧 Automatic email reminders (Gmail App Password)
 

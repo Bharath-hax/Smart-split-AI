@@ -26,12 +26,12 @@ export async function POST(req: NextRequest) {
     if (!group) return jsonError("Group not found", 404);
 
     const memberById = new Map(group.members.map((m) => [m.user.id, m.user]));
-    const results: Array<{ debtId: string; url: string | null; mock: boolean }> = [];
+    const results: Array<{ debtId: string; url: string | null }> = [];
     const errors: string[] = [];
 
     for (const debt of group.debts) {
       if (debt.paymentLinkId && !force) {
-        results.push({ debtId: debt.id, url: debt.paymentUrl, mock: false });
+        results.push({ debtId: debt.id, url: debt.paymentUrl });
         continue;
       }
       try {
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
           where: { id: debt.id },
           data: { paymentLinkId: link.id, paymentUrl: link.url },
         });
-        results.push({ debtId: debt.id, url: link.url, mock: link.mock });
+        results.push({ debtId: debt.id, url: link.url });
       } catch (e) {
         errors.push(
           `Debt ${debt.id}: ${e instanceof Error ? e.message : "unknown error"}`

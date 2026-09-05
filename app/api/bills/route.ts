@@ -115,9 +115,9 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // ── Auto-detect non-payers → debts + payment links + Gmail ──
+    // ── Auto-detect non-payers → debts + payment links + email ──
     // Every member whose share exceeds what they paid owes the difference to
-    // the primary payer. We create a Debt for each, attach a (test/demo)
+    // the primary payer. We create a Debt for each, attach a real Razorpay
     // payment link, and — when email sending is configured on the server —
     // send an automatic reminder email with the "Pay now" link right away.
     const reminders: Array<{
@@ -200,11 +200,8 @@ export async function POST(req: NextRequest) {
             0
           );
           let message = gen.data ?? "";
-          const hasRealLink = paymentUrl && !paymentUrl.startsWith("#");
-          if (hasRealLink) {
+          if (paymentUrl) {
             message += `\n\nPay securely here: ${paymentUrl}`;
-          } else if (paymentUrl) {
-            message += "\n\n(Open the app to use your demo payment link.)";
           }
 
           let channel: "email" | "in-app" = "in-app";

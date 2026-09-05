@@ -208,12 +208,8 @@ export async function POST(req: NextRequest) {
           0 // brand-new debt → gentle tone
         );
         let message = gen.data ?? "";
-        const hasRealLink =
-          d.paymentUrl && !d.paymentUrl.startsWith("#");
-        if (hasRealLink) {
+        if (d.paymentUrl) {
           message += `\n\nPay securely here: ${d.paymentUrl}`;
-        } else if (d.paymentUrl) {
-          message += "\n\n(Open the app to use your demo payment link.)";
         }
 
         let channel: "email" | "in-app" = "in-app";

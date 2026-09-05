@@ -65,7 +65,6 @@ interface SettlementData {
   transfers: Transfer[];
   debts: Debt[];
   stats: { naiveCount: number; minimalCount: number };
-  razorpayEnabled: boolean;
 }
 
 /**
@@ -306,7 +305,7 @@ function SettlementBody({
                   ) : (
                     <Wand2 className="h-4 w-4" />
                   )}
-                  Settle up {settlement.razorpayEnabled ? "(Razorpay)" : "(demo links)"}
+                  Settle up
                 </Button>
                 {settlement.debts.some((d) => d.status === "pending" && !d.paymentUrl) && (
                   <Button variant="outline" disabled={settling} onClick={onLinks}>
@@ -457,7 +456,7 @@ function DebtList({
                 <span className="font-bold">{formatINR(d.amount)}</span>
                 {paid ? (
                   <CheckCircle2 className="h-5 w-5 text-success" />
-                ) : d.paymentUrl && !d.paymentUrl.startsWith("#") ? (
+                ) : d.paymentUrl ? (
                   <a
                     href={d.paymentUrl}
                     target="_blank"
@@ -466,9 +465,7 @@ function DebtList({
                   >
                     <Button size="sm">Pay</Button>
                   </a>
-                ) : (
-                  <Badge className="bg-secondary text-secondary-foreground">demo link</Badge>
-                )}
+                ) : null}
               </div>
             </div>
 
@@ -506,7 +503,7 @@ function DebtList({
                 ) : d.lastReminderMessage ? (
                   <div className="rounded-xl bg-accent p-3 text-sm text-accent-foreground">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Auto-reminder (Gmail not connected — copy to send)
+                      Auto-reminder (copy to send)
                     </p>
                     <p className="mt-1 leading-relaxed">{d.lastReminderMessage}</p>
                     <button
