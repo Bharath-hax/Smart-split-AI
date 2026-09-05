@@ -1,187 +1,1138 @@
-﻿# ðŸ“± SplitSettle AI
+# 📱 SplitSettle AI
 
-**Scan bills with AI. Split fairly. Settle in the fewest payments.**
+### Scan bills with AI. Split fairly. Settle with fewer payments.
+
+<p align="center">
+  <strong>AI-powered bill splitting and smart group settlement</strong>
+</p>
+
+<p align="center">
+  <a href="https://splite-settle-ai-bk3165843-5971s-projects.vercel.app">
+    <img src="https://img.shields.io/badge/🚀%20Live%20Demo-ff6b6b?style=for-the-badge&labelColor=111827" alt="Live Demo">
+  </a>
+  <a href="https://splite-settle-ai-bk3165843-5971s-projects.vercel.app">
+    <img src="https://img.shields.io/badge/📱%20PWA-10b981?style=for-the-badge&labelColor=111827" alt="PWA App">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://splite-settle-ai-bk3165843-5971s-projects.vercel.app">
+    <img src="https://img.shields.io/badge/TRY%20IT%20OUT-Live%20Demo-ff6b6b?style=flat-square" alt="Try It Out">
+  </a>
+</p>
+
+---
+
+## ✨ Overview
+
+**SplitSettle AI** is a mobile-first Progressive Web App that makes group bill splitting simple, fair, and intelligent.
+
+Instead of manually calculating who owes whom, SplitSettle AI can:
+
+* 📸 Scan a real receipt using Gemini Vision
+* 🤖 Extract bill details automatically
+* 👥 Split expenses equally, by custom amounts, or by individual items
+* 🧮 Calculate each person's net balance
+* ⚡ Minimize the number of payments required to settle the group
+* 💳 Generate Razorpay payment links
+* 📧 Automatically send payment reminders
+* 🧠 Provide AI-powered spending insights
+* 🚨 Detect unusual spending
+* 📊 Generate monthly spending recaps
+* 📱 Work as an installable PWA
+
+> **The core idea:**
+> Turn a complicated group debt graph into the smallest possible set of real-world payments.
+
+### 🔗 Live Application
+
+**Try SplitSettle AI:**
+https://splite-settle-ai-bk3165843-5971s-projects.vercel.app
+
+No signup is required for the demo.
+
+---
+
+# 🎯 Why SplitSettle AI?
+
+Traditional bill-splitting applications often create unnecessary transactions.
+
+For example, imagine a group where:
+
+```text
+Alice → Bob       ₹500
+Alice → Charlie   ₹300
+David → Bob       ₹200
+David → Charlie   ₹100
+```
+
+There may be many individual transactions.
+
+SplitSettle AI first calculates everyone's **net balance** and then matches debtors with creditors.
+
+```text
+BEFORE
+
+Alice ───── ₹500 ────→ Bob
+Alice ───── ₹300 ────→ Charlie
+David ───── ₹200 ────→ Bob
+David ───── ₹100 ────→ Charlie
+
+
+AFTER
+
+Alice ───── ₹800 ────→ Bob
+David ───── ₹300 ────→ Charlie
+```
+
+The result is fewer payments and a much simpler settlement process.
+
+---
+
+# 🚀 Key Features
+
+| #  | Feature                 | Description                                                   |
+| -- | ----------------------- | ------------------------------------------------------------- |
+| 01 | 🔐 Quick Login          | Login using name and phone with session-based authentication  |
+| 02 | 👥 Groups               | Create or join groups using a 6-character share code          |
+| 03 | 📸 AI Bill Scanner      | Gemini Vision extracts vendor, date, items and total          |
+| 04 | 💰 Smart Splitting      | Equal, custom and item-level splitting                        |
+| 05 | 🧮 Multi-Payer Support  | Multiple members can pay for the same bill                    |
+| 06 | ⚡ Smart Settlement      | Minimizes the number of required transactions                 |
+| 07 | 💳 Razorpay Payments    | Generate payment links using Razorpay                         |
+| 08 | 🔔 Live Payment Status  | Razorpay webhook updates payment status automatically         |
+| 09 | 📧 Email Reminders      | Automatically emails debtors with personalized payment links  |
+| 10 | 🤖 AI Spending Coach    | Ask questions about real group spending                       |
+| 11 | 🏷️ Auto Categorization | Automatically categorizes expenses                            |
+| 12 | 🚨 Anomaly Detection    | Detects unusually high expenses                               |
+| 13 | 🔔 Smart Reminders      | AI-generated reminders based on payment age                   |
+| 14 | 📊 Monthly Recap        | Generates shareable monthly spending summaries                |
+| 15 | 📈 Fair-Split Forecast  | Estimates expected spending and future contribution           |
+| 16 | 📱 PWA                  | Installable directly from a mobile browser                    |
+| 17 | 🌙 Dark Mode            | Modern dark/light interface                                   |
+| 18 | 📶 Graceful Fallbacks   | Core functionality continues without optional AI/payment APIs |
+
+---
+
+# 🏗️ Architecture
+
+```mermaid
+flowchart TB
+
+    USER["📱 User"]
+
+    subgraph FRONTEND["📱 SplitSettle AI PWA"]
+        UI["Next.js 14<br/>App Router"]
+        NAV["Mobile Navigation<br/>Home · Groups · Scan · Activity · Profile"]
+        PWA["PWA Layer<br/>Manifest + Service Worker"]
+    end
+
+    subgraph BACKEND["⚡ Next.js API Layer"]
+        OCR["/api/ocr"]
+        BILLS["/api/bills"]
+        GROUPS["/api/groups"]
+        SETTLEMENT["/api/settlement"]
+        PAYMENTS["/api/payment-links"]
+        WEBHOOK["/api/webhooks/razorpay"]
+        CHAT["/api/chat"]
+        INSIGHTS["/api/insights"]
+        REMINDERS["/api/reminders"]
+        ACTIVITY["/api/activity"]
+    end
+
+    subgraph DATABASE["🗄️ Database"]
+        PRISMA["Prisma ORM"]
+        POSTGRES["Supabase PostgreSQL"]
+    end
+
+    subgraph AI["🤖 Google Gemini"]
+        VISION["Gemini Vision<br/>Receipt OCR"]
+        AI_TEXT["Gemini Text<br/>Insights · Chat · Reminders"]
+    end
+
+    subgraph PAY["💳 Payment Infrastructure"]
+        RAZORPAY["Razorpay<br/>Test Mode"]
+    end
+
+    subgraph EMAIL["📧 Notification System"]
+        SMTP["Nodemailer"]
+        GMAIL["Gmail SMTP"]
+    end
+
+    USER --> UI
+    UI --> NAV
+    UI --> PWA
+
+    UI --> OCR
+    UI --> BILLS
+    UI --> GROUPS
+    UI --> SETTLEMENT
+    UI --> PAYMENTS
+    UI --> CHAT
+    UI --> INSIGHTS
+    UI --> ACTIVITY
+
+    OCR --> VISION
+    CHAT --> AI_TEXT
+    INSIGHTS --> AI_TEXT
+    REMINDERS --> AI_TEXT
+
+    OCR --> PRISMA
+    BILLS --> PRISMA
+    GROUPS --> PRISMA
+    SETTLEMENT --> PRISMA
+    ACTIVITY --> PRISMA
+
+    PRISMA --> POSTGRES
+
+    PAYMENTS --> RAZORPAY
+    RAZORPAY -->|"payment_link.paid"| WEBHOOK
+    WEBHOOK --> PRISMA
+
+    REMINDERS --> SMTP
+    SMTP --> GMAIL
+```
+
+---
+
+# 🧠 Core Settlement Algorithm
+
+The main intelligence behind SplitSettle AI is the **minimum-transaction settlement algorithm**.
+
+Instead of preserving every individual debt relationship, the system calculates a **net balance** for every group member.
+
+### Step 1 — Calculate Net Balance
+
+For every person:
+
+```text
+Net Balance = Amount Paid - Amount Owed
+```
+
+Example:
+
+```text
+Alice    +₹800
+Bob      +₹300
+Charlie  -₹700
+David    -₹400
+```
+
+Positive values represent **creditors**.
+
+Negative values represent **debtors**.
+
+---
+
+### Step 2 — Separate Creditors and Debtors
+
+```text
+Creditors
+
+Alice     ₹800
+Bob       ₹300
+
+
+Debtors
+
+Charlie   ₹700
+David     ₹400
+```
+
+---
+
+### Step 3 — Greedy Matching
+
+The algorithm repeatedly matches:
+
+```text
+Largest Debtor
+        ↓
+Largest Creditor
+        ↓
+Transfer the minimum possible amount
+        ↓
+Remove anyone whose balance reaches zero
+```
+
+Example:
+
+```text
+Charlie → Alice    ₹700
+
+Remaining:
+
+Alice     ₹100
+Bob       ₹300
+David    -₹400
+
+David → Bob        ₹300
+
+David → Alice      ₹100
+```
+
+The algorithm produces only the transactions necessary to settle the final balances.
+
+### Complexity
+
+The original debt graph can contain **O(n²)** relationships.
+
+The settlement process reduces this to at most:
+
+```text
+n - 1 transactions
+```
+
+The implementation is located in:
+
+```text
+lib/settlement-algorithm.ts
+```
+
+---
+
+# 📸 AI Bill Scanning
+
+SplitSettle AI uses **Gemini Vision** to analyze receipt images.
+
+### Scan Flow
+
+```mermaid
+sequenceDiagram
+
+    participant U as User
+    participant APP as SplitSettle AI
+    participant API as /api/ocr
+    participant AI as Gemini Vision
+    participant DB as Supabase
+
+    U->>APP: Upload receipt
+    APP->>API: Send image
+    API->>AI: Analyze receipt
+    AI-->>API: Structured bill data
+    API-->>APP: Vendor + Items + Total + Date
+    APP->>U: Show confirmation card
+    U->>APP: Confirm bill
+    APP->>DB: Save bill
+```
+
+Gemini can extract:
+
+```text
+Vendor
+Date
+Total Amount
+Individual Items
+Prices
+Potential Category
+```
+
+The user can review and edit the extracted information before saving.
+
+---
+
+# 🏷️ Automatic Categorization
+
+Expenses are automatically classified into categories such as:
+
+```text
+🍔 Food
+✈️ Travel
+🏠 Rent
+💡 Utilities
+🛍️ Shopping
+```
+
+If Gemini is unavailable, SplitSettle AI falls back to a lightweight keyword-based classifier.
+
+This means the application remains usable even without an AI API key.
+
+---
+
+# 🚨 Anomaly Detection
+
+SplitSettle AI compares new expenses against historical spending patterns.
+
+For example:
+
+```text
+⚠️ Unusual Expense
+
+This bill is approximately 40%
+higher than your group's usual spending.
+```
+
+The warning appears before the user confirms the bill.
+
+This helps users catch:
+
+* Accidental duplicate bills
+* Unexpectedly expensive purchases
+* Incorrect receipt totals
+* Unusual spending patterns
+
+---
+
+# 🤖 AI Spending Coach
+
+The AI Spending Coach can answer questions using actual group data.
+
+Example:
+
+```text
+User:
+"How much did we spend on food this month?"
+
+AI:
+"Your group spent ₹8,450 on food this month."
+```
+
+The important design principle is:
+
+> **The AI should reason over real database values instead of inventing financial numbers.**
+
+---
+
+# 💳 Razorpay Payment Flow
+
+SplitSettle AI integrates Razorpay payment links.
+
+```mermaid
+sequenceDiagram
+
+    participant U as Debtor
+    participant APP as SplitSettle AI
+    participant RZP as Razorpay
+    participant WH as Webhook
+    participant DB as Database
+
+    APP->>RZP: Create payment link
+    RZP-->>APP: Payment URL
+    APP->>U: Send payment link
+
+    U->>RZP: Make payment
+    RZP-->>WH: payment_link.paid
+    WH->>WH: Verify HMAC-SHA256 signature
+    WH->>DB: Mark debt as paid
+    DB-->>APP: Updated status
+    APP-->>U: ✅ Paid
+```
+
+### Webhook Endpoint
+
+```text
+/api/webhooks/razorpay
+```
+
+The webhook validates Razorpay's signed payload before updating the database.
+
+---
+
+# 📧 Automatic Email Reminders
+
+When payment links are generated, SplitSettle AI can automatically notify debtors.
+
+The system uses:
+
+```text
+Nodemailer
+      ↓
+Gmail SMTP
+      ↓
+Debtor Email
+      ↓
+Razorpay Payment Link
+```
+
+Emails contain:
+
+* Group name
+* Exact amount owed
+* Personalized reminder
+* Payment link
+* "Pay Now" button
+
+Reminder tone can become progressively firmer based on how long the debt remains unpaid.
+
+Example:
+
+```text
+Day 1
+"Hey! Just a quick reminder about your pending split 😊"
+
+Day 5+
+"Your payment of ₹850 is still pending.
+Please settle it when you get a chance."
+```
+
+Email delivery is tracked through:
+
+```text
+EmailLog
+```
+
+The group interface can show:
+
+```text
+✅ Emailed
+
+or
+
+❌ Failed to send
+```
+
+---
+
+# 📱 Progressive Web App
+
+SplitSettle AI is designed as a **mobile-first PWA**.
+
+Users can install it directly from their browser:
+
+```text
+Browser
+   ↓
+Add to Home Screen
+   ↓
+📱 SplitSettle AI
+```
+
+The PWA includes:
+
+* Installable application
+* Mobile-first UI
+* App-like navigation
+* Service worker
+* Offline shell
+* Responsive layouts
+* Bottom-tab navigation
+* Dark mode
+
+---
+
+# 🗺️ Application Flow
+
+```mermaid
+flowchart LR
+
+    LOGIN["🔐 Login"]
+
+    HOME["🏠 Home"]
+
+    GROUPS["👥 Groups"]
+
+    CREATE["➕ Create / Join"]
+
+    SCAN["📸 Scan Bill"]
+
+    SPLIT["✂️ Split Bill"]
+
+    SETTLE["⚡ Settle Up"]
+
+    PAYMENT["💳 Payment"]
+
+    ACTIVITY["📊 Activity"]
+
+    AI["🤖 AI Coach"]
+
+    LOGIN --> HOME
+    HOME --> GROUPS
+    GROUPS --> CREATE
+    CREATE --> SCAN
+    SCAN --> SPLIT
+    SPLIT --> SETTLE
+    SETTLE --> PAYMENT
+    PAYMENT --> ACTIVITY
+    HOME --> AI
+```
+
+---
+
+# 🛠️ Tech Stack
+
+## Frontend
+
+| Technology              | Purpose                       |
+| ----------------------- | ----------------------------- |
+| Next.js 14              | React framework               |
+| TypeScript              | Type-safe development         |
+| Tailwind CSS            | Styling                       |
+| shadcn/ui               | UI components                 |
+| Framer Motion           | Animations                    |
+| Lucide React            | Icons                         |
+| React / Next App Router | Application routing           |
+| PWA                     | Installable mobile experience |
+
+## Backend
+
+| Technology             | Purpose                 |
+| ---------------------- | ----------------------- |
+| Next.js Route Handlers | API layer               |
+| Prisma                 | ORM                     |
+| Supabase PostgreSQL    | Database                |
+| Session Cookies        | Authentication          |
+| Webhooks               | Payment synchronization |
+| Nodemailer             | Email delivery          |
+
+## AI
+
+| Technology           | Purpose                    |
+| -------------------- | -------------------------- |
+| Google Gemini Vision | Receipt OCR                |
+| Google Gemini Text   | AI Coach                   |
+| Gemini               | Spending insights          |
+| Gemini               | Smart reminders            |
+| Keyword Classifier   | AI fallback categorization |
+
+## Payments
+
+| Technology  | Purpose              |
+| ----------- | -------------------- |
+| Razorpay    | Payment links        |
+| HMAC-SHA256 | Webhook verification |
+
+## Deployment
+
+```text
+Vercel
+   +
+Supabase
+   +
+Razorpay
+   +
+Google Gemini
+```
+
+---
+
+# 📁 Project Structure
+
+```text
+splitsettle-ai/
+│
+├── app/
+│   ├── (tabs)/
+│   │   ├── home/
+│   │   ├── groups/
+│   │   ├── scan/
+│   │   ├── activity/
+│   │   └── profile/
+│   │
+│   ├── api/
+│   │   ├── ocr/
+│   │   ├── bills/
+│   │   ├── groups/
+│   │   ├── settlement/
+│   │   ├── payment-links/
+│   │   ├── webhooks/
+│   │   │   └── razorpay/
+│   │   ├── chat/
+│   │   ├── insights/
+│   │   ├── reminders/
+│   │   ├── activity/
+│   │   └── session/
+│   │
+│   └── layout.tsx
+│
+├── components/
+│   ├── bottom-nav/
+│   ├── bottom-sheet/
+│   ├── chat-sheet/
+│   ├── recap-card/
+│   ├── settlement-graph/
+│   ├── screens/
+│   └── ui/
+│
+├── lib/
+│   ├── prisma.ts
+│   ├── gemini.ts
+│   ├── razorpay.ts
+│   ├── settlement-algorithm.ts
+│   ├── categorize.ts
+│   ├── insights.ts
+│   ├── session.ts
+│   └── api.ts
+│
+├── prisma/
+│   └── schema.prisma
+│
+├── public/
+│   ├── manifest.json
+│   ├── sw.js
+│   └── icons/
+│
+├── .env.example
+├── package.json
+├── next.config.js
+├── tailwind.config.ts
+└── README.md
+```
+
+---
+
+# ⚙️ Database Model
+
+The core Prisma schema contains entities such as:
+
+```text
+User
+  │
+  ├── Membership
+  │       │
+  │       └── Group
+  │
+  ├── Bill
+  │       │
+  │       └── BillShare
+  │
+  └── Activity
+
+Group
+  │
+  ├── Members
+  ├── Bills
+  ├── Debts
+  └── Activities
+```
+
+### Main entities
+
+```text
+User
+Group
+Membership
+Bill
+BillShare
+Debt
+Activity
+EmailLog
+```
+
+---
+
+# 🚀 Run Locally
+
+### 1. Clone the repository
+
+```bash
+git clone <your-repository-url>
+cd splitsettle-ai
+```
+
+### 2. Install dependencies
+
+```bash
+npm install
+```
+
+### 3. Configure environment variables
+
+```bash
+cp .env.example .env
+```
+
+Add your credentials to `.env`.
+
+### 4. Create the database schema
+
+```bash
+npx prisma db push
+```
+
+### 5. Start the development server
+
+```bash
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+For testing the native mobile experience, access the application using your computer's LAN IP:
+
+```text
+http://192.168.x.x:3000
+```
+
+Then use your browser's **Add to Home Screen** option.
+
+---
+
+# 🔑 Environment Variables
+
+Create a `.env` file:
+
+```env
+DATABASE_URL="your_supabase_database_url"
+
+SESSION_SECRET="your_random_session_secret"
+
+GEMINI_API_KEY="your_gemini_api_key"
+GEMINI_MODEL="gemini-1.5-flash"
+
+RAZORPAY_KEY_ID="rzp_test_xxxxxxxxx"
+RAZORPAY_KEY_SECRET="your_razorpay_secret"
+RAZORPAY_WEBHOOK_SECRET="your_webhook_secret"
+
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+
+NOTIFICATION_EMAIL="your_notification_email@gmail.com"
+NOTIFICATION_EMAIL_APP_PASSWORD="your_gmail_app_password"
+```
+
+### Required vs Optional
+
+| Variable                          |    Required | Purpose                   |
+| --------------------------------- | ----------: | ------------------------- |
+| `DATABASE_URL`                    |           ✅ | Supabase PostgreSQL       |
+| `SESSION_SECRET`                  |           ✅ | Secure sessions           |
+| `GEMINI_API_KEY`                  | Recommended | AI OCR and intelligence   |
+| `GEMINI_MODEL`                    |    Optional | Gemini model selection    |
+| `RAZORPAY_KEY_ID`                 |    Optional | Payment links             |
+| `RAZORPAY_KEY_SECRET`             |    Optional | Razorpay authentication   |
+| `RAZORPAY_WEBHOOK_SECRET`         |    Optional | Webhook verification      |
+| `NEXT_PUBLIC_APP_URL`             |           ✅ | Application URL           |
+| `NOTIFICATION_EMAIL`              |    Optional | Reminder sender           |
+| `NOTIFICATION_EMAIL_APP_PASSWORD` |    Optional | Gmail SMTP authentication |
+
+---
+
+# ☁️ Deployment
+
+## Deploy with Vercel + Supabase
+
+### 1. Create Supabase project
+
+Create a PostgreSQL database and obtain the connection URI.
+
+### 2. Push the repository to GitHub
+
+```bash
+git add .
+git commit -m "Initial SplitSettle AI release"
+git push origin main
+```
+
+### 3. Import into Vercel
+
+Connect the GitHub repository to Vercel.
+
+Add the required environment variables under:
+
+```text
+Vercel
+→ Project
+→ Settings
+→ Environment Variables
+```
+
+### 4. Configure Prisma
+
+Use the Supabase connection pooling URI where appropriate.
+
+Then run:
+
+```bash
+DATABASE_URL="your-supabase-uri" npx prisma db push
+```
+
+### 5. Configure Razorpay webhook
+
+Create a webhook pointing to:
+
+```text
+https://YOUR-DOMAIN/api/webhooks/razorpay
+```
+
+Subscribe to:
+
+```text
+payment_link.paid
+```
+
+Set the same webhook secret in:
+
+```text
+RAZORPAY_WEBHOOK_SECRET
+```
+
+After deployment, every push to the configured production branch can trigger a new Vercel deployment.
+
+---
+
+# 🧪 Demo Flow
+
+The recommended 90-second demonstration:
+
+### 1️⃣ Scan a real receipt
+
+Upload a receipt and demonstrate Gemini extracting:
+
+```text
+Vendor
+Date
+Items
+Total
+Category
+```
+
+### 2️⃣ Show anomaly detection
+
+Demonstrate the warning:
+
+```text
+⚠️ 60% above usual spending
+```
+
+### 3️⃣ Split the bill
+
+Assign members and choose:
+
+```text
+Equal
+Custom
+By Item
+Multi-Payer
+```
+
+### 4️⃣ Open Settle Up
+
+Show the:
+
+```text
+BEFORE → AFTER
+```
+
+settlement graph.
+
+Example:
+
+```text
+9 possible transactions
+        ↓
+2 optimized transactions
+```
+
+### 5️⃣ Generate payment links
+
+Create Razorpay test payment links.
+
+### 6️⃣ Complete a payment
+
+Make a test payment and demonstrate the webhook automatically changing:
+
+```text
+⏳ Pending
+      ↓
+✅ Paid
+```
+
+### 7️⃣ Ask the AI Coach
+
+Example:
+
+```text
+"How much did we spend on food this month?"
+```
+
+### 8️⃣ Show insights
+
+Demonstrate:
+
+* Monthly recap
+* Spending categories
+* Fair-split forecast
+* Smart reminders
+
+---
+
+# 🛡️ Graceful Fallbacks
+
+SplitSettle AI is designed so optional services do not completely break the application.
+
+### Gemini unavailable
+
+```text
+Gemini
+  ↓
+Unavailable
+  ↓
+Manual bill entry
+  +
+Keyword categorization
+  +
+Template insights
+```
+
+### Razorpay unavailable
+
+```text
+Razorpay
+  ↓
+Unavailable
+  ↓
+Debt remains visible
+  +
+Manual settlement option
+```
+
+### Email unavailable
+
+```text
+Email
+  ↓
+Failed / Not configured
+  ↓
+Personalized reminder shown in app
+  +
+Copy Message
+```
+
+This keeps the core bill-splitting experience functional even when external services are unavailable.
+
+---
+
+# 🔐 Security Considerations
+
+SplitSettle AI uses several security practices:
+
+* Environment variables for secrets
+* Session-based authentication
+* Server-side API operations
+* Razorpay webhook signature verification
+* HMAC-SHA256 validation
+* Database-backed payment state
+* No API secrets exposed to the client
+* Server-side Gemini requests
+* Input validation
+* Controlled payment state transitions
+
+> **Never commit `.env` or API credentials to GitHub.**
+
+Add the following to `.gitignore`:
+
+```text
+.env
+.env.local
+.env.production
+node_modules/
+.next/
+```
+
+---
+
+# 📈 Performance & Scalability
+
+The architecture is designed around serverless-friendly services:
+
+```text
+Vercel
+   ↓
+Next.js Route Handlers
+   ↓
+Prisma
+   ↓
+Supabase PostgreSQL
+```
+
+Potential scaling improvements include:
+
+* Redis caching
+* Background job queues
+* Database connection pooling
+* Rate limiting
+* Image compression before OCR
+* AI response caching
+* Pagination for activity feeds
+* Indexed financial queries
+
+---
+
+# 🔮 Future Improvements
+
+Planned improvements could include:
+
+* [ ] Google / Apple authentication
+* [ ] WhatsApp payment reminders
+* [ ] UPI deep links
+* [ ] Recurring bills
+* [ ] Group expense analytics
+* [ ] Advanced spending predictions
+* [ ] Multi-currency support
+* [ ] Currency conversion
+* [ ] Receipt history
+* [ ] Export to PDF / CSV
+* [ ] Push notifications
+* [ ] Redis caching
+* [ ] Background processing
+* [ ] Advanced fraud/anomaly detection
+* [ ] AI-powered financial recommendations
+
+---
+
+# 🏆 What Makes SplitSettle AI Different?
+
+SplitSettle AI combines several technologies into one practical financial workflow:
+
+```text
+Receipt Image
+      ↓
+🤖 AI Vision
+      ↓
+Structured Bill
+      ↓
+👥 Smart Split
+      ↓
+🧮 Net Balance Calculation
+      ↓
+⚡ Minimum Transactions
+      ↓
+💳 Payment Links
+      ↓
+🔔 Webhook Confirmation
+      ↓
+📧 Automated Reminder
+      ↓
+📊 Spending Intelligence
+```
+
+Instead of being only a **bill calculator**, SplitSettle AI creates an end-to-end expense settlement system.
+
+---
+
+# 📊 Project Highlights
+
+```text
+📱 Mobile-first PWA
+🤖 Gemini Vision OCR
+🧮 Minimum-transaction settlement
+💳 Razorpay payment integration
+🔔 Real-time webhook updates
+📧 Automated email reminders
+📊 AI spending analytics
+🚨 Anomaly detection
+🏷️ Automatic categorization
+⚡ Graceful API fallbacks
+☁️ Vercel + Supabase deployment
+```
+
+---
+
+# 📜 License
+
+This project is developed for educational, portfolio, hackathon, and demonstration purposes.
+
+---
 
 <p align="center">
 
-<a href="https://splite-settle-ai-bk3165843-5971s-projects.vercel.app">
-  <img src="https://img.shields.io/badge/🚀-TRY%20IT%20OUT%20—%20Live%20Demo-ff6b6b?style=for-the-badge&labelColor=111827&logoColor=white" alt="🚀 Try It Out — Live Demo">
-</a>
+### 🚀 SplitSettle AI
 
-&nbsp;
+**Scan bills. Split fairly. Settle smarter.**
 
-<a href="https://splite-settle-ai-bk3165843-5971s-projects.vercel.app">
-  <img src="https://img.shields.io/badge/📱-PWA%20App%20—%20Add%20to%20Home%20Screen-10b981?style=for-the-badge&labelColor=111827&logoColor=white" alt="📱 PWA App — Add to Home Screen">
-</a>
+Built with ❤️ using Next.js, TypeScript, Supabase, Prisma, Gemini AI and Razorpay.
 
 </p>
-
-> 🚀 **Live Demo deployed on Vercel** — Scan a real bill with AI (Gemini Vision OCR), split it fairly across your group, and settle with the fewest possible payments. Built with Next.js 14, Supabase, Prisma, Gemini, and Razorpay. Tap the button above and give it a spin — no signup required! 👇
-
----
-
-A mobile-first **PWA** (installable, Add-to-Home-Screen) built with **Next.js 14 + TypeScript + Tailwind + shadcn/ui**, backed by **Supabase Postgres + Prisma**, with **Gemini** vision OCR, a **minimum-transaction settlement algorithm**, and **Razorpay test-mode payment links** with a live webhook.
-
-> The headline: instead of naive pairwise refunds, SplitSettle computes each person's net balance and greedily matches the largest debtor to the largest creditor â€” collapsing an O(nÂ²) debt graph into at most nâˆ’1 real payments. The UI shows the "before â†’ after" so judges can see it.
-
----
-
-## âœ¨ Features
-
-| # | Feature | Where |
-|---|---------|-------|
-| 1 | Quick login (name + phone, session cookie) | `/login` |
-| 2 | Create/join groups via 6-char share code | `/groups` |
-| 3 | **Scan Bill** â€” Gemini Vision extracts vendor, total, items, date; animated confirm card | `/scan` |
-| 4 | Equal / custom / **by-item** split, multi-payer | Split editor |
-| 5 | **Minimum-transaction settlement** with beforeâ†’after graph | Group detail |
-| 6 | Razorpay payment links + **signed webhook** â†’ live "Paid" status | `/api/webhooks/razorpay` |
-| 7 | Activity feed (transaction-style, avatars, pull-to-refresh) | `/activity` |
-| 8 | **AI Spending Coach** chat grounded in real DB data (never invents numbers) | Group detail |
-| 9 | **Auto-categorization** (Food/Travel/Rent/Utilities/Shopping) with colored chips | Scan flow |
-| 10 | **Anomaly detection** â€” "40% above usual" warning before confirming | Scan flow |
-| 11 | **Smart reminders** â€” Gemini-written nudges, tone scales gentleâ†’firm with age | Group detail |
-| 12 | **Monthly recap** shareable card | Group detail |
-| 13 | **Fair-split forecast** â€” "at this rate you'll owe ~â‚¹X by month end" | `/home` |
-
-Everything degrades gracefully: no Gemini key â†’ manual entry + keyword categories + template insights. No Razorpay keys â†’ real Razorpay payment links (2-minute setup).
-
----
-
-## ðŸ—ï¸ Architecture
-
-```mermaid
-graph TB
-    subgraph Phone["ðŸ“± PWA (Next.js 14 App Router, Vercel)"]
-        UI["Bottom-tab UI: Home Â· Groups Â· Scan Â· Activity Â· Profile"]
-        SW["Service Worker + manifest: offline shell, installable"]
-    end
-
-    subgraph API["âš¡ Next.js Route Handlers"]
-        OCR["/api/ocr"]
-        SETTLE["/api/settlement"]
-        LINKS["/api/payment-links"]
-        WEBHOOK["/api/webhooks/razorpay"]
-        CHAT["/api/chat Â· /api/insights Â· /api/reminders"]
-    end
-
-    subgraph Ext["External services"]
-        GEM["Google Gemini (vision OCR + text: scan, chat, insights)"]
-        RZP["Razorpay Test Mode payment links"]
-    end
-
-    DB[("Supabase Postgres<br/>Prisma ORM")]
-
-    UI --> API
-    OCR --> GEM
-    CHAT --> GEM
-    LINKS --> RZP
-    RZP -- "payment_link.paid (HMAC-SHA256 signed)" --> WEBHOOK
-    API --> DB
-```
-
-**Settlement engine** (`lib/settlement-algorithm.ts`): net balance per person â†’ sort creditors/debtors by magnitude â†’ greedily settle largest-vs-largest â†’ at most nâˆ’1 transfers.
-
-## ðŸš€ Run locally (5 minutes)
-
-```bash
-# 1. Install
-npm install
-
-# 2. Configure env
-cp .env.example .env        # then paste your keys (table below)
-
-# 3. Create the database schema
-npx prisma db push
-
-# 4. Run
-npm run dev                 # â†’ http://localhost:3000
-```
-
-Open it on your phone via your LAN IP (e.g. `http://192.168.x.x:3000`) for the real native-app feel, and use your browser's **"Add to Home Screen"** to install it.
-
-### Environment variables
-
-| Variable | Where to get it | Required? |
-|----------|----------------|-----------|
-| `DATABASE_URL` | Supabase â†’ Project Settings â†’ Database â†’ Connection string (URI) | âœ… |
-| `SESSION_SECRET` | Any long random string (`openssl rand -hex 32`) | âœ… |
-| `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/apikey) â€” free tier | Recommended |
-| `GEMINI_MODEL` | Defaults to `gemini-1.5-flash` | Optional |
-
-| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Razorpay Dashboard â†’ Settings â†’ API Keys â†’ **Test mode** (`rzp_test_â€¦`) | For real links |
-| `RAZORPAY_WEBHOOK_SECRET` | You choose it when creating the webhook (see below) | For live settling |
-| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` locally, your Vercel URL in prod | âœ… |
-
-> No keys at all? The app still runs: OCR falls back to a manual form, categories come from a keyword classifier, and the app tells you exactly which key to add when one is missing.
-
-## 📧 Automatic email reminders (Gmail App Password)
-
-The instant a bill is split and payment links are generated, the server **automatically** emails every debtor — no button click needed. Each email is written by Gemini (tone scales with how overdue the debt is: gentle on day 1, firmer by day 5+), formatted as clean HTML with the group name, exact amount owed and a **Pay Now** button linking to the Razorpay payment link.
-
-**How it works:**
-- Sent via **Nodemailer (Gmail SMTP)** from **one dedicated app account** — no per-user Google login, no OAuth consent screen, no test-user list. It works immediately for **any** recipient email address.
-- Delivery is tracked per debt (`EmailLog`): the group screen shows "✅ Emailed" / "❌ Failed to send" with the reason.
-
-**Setup (5 minutes, no Google Cloud Console):**
-1. Create one Gmail account for the app (e.g. `splitsettleai.notify@gmail.com`) — or use your own. A dedicated one keeps your personal inbox separate and looks professional in the "From" name.
-2. On that account: **Google Account → Security → 2-Step Verification** — turn it on (App Passwords require it).
-3. Go to **[myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)** → generate an App Password (app type: **Mail**) → copy the 16-character password (not your regular Gmail password).
-4. Add the env vars:
-
-| Variable | Value |
-|----------|-------|
-| `NOTIFICATION_EMAIL` | The dedicated Gmail address (e.g. `splitsettleai.notify@gmail.com`) |
-| `NOTIFICATION_EMAIL_APP_PASSWORD` | The 16-character App Password |
-
-5. Add the same two vars in **Vercel → Settings → Environment Variables** for production.
-
-> Tip: the first one or two sends from a brand-new account may land in the recipient's **Spam** folder — check there when testing.
-
-**Not configured?** Nothing breaks — the app falls back to showing the same personalized nudge inside the group screen with a "Copy message" button so you can send it manually.
-
----
-
-## â˜ï¸ Deploy to Vercel + Supabase
-1. **Supabase** (free): create a project â†’ copy the **Connection string (URI)**.
-2. **Push this repo to your GitHub.**
-3. **Vercel**: "New Project" â†’ import the repo â†’ add the env vars from the table above (use Supabase's **connection pooling** URI, port `6543`, for `DATABASE_URL`).
-4. Deploy. Then create the DB schema once from your machine:
-   ```bash
-   DATABASE_URL="<your-supabase-uri>" npx prisma db push
-   ```
-5. **Razorpay webhook**: Dashboard â†’ Settings â†’ Webhooks â†’ add `https://<your-app>.vercel.app/api/webhooks/razorpay`, subscribe to **`payment_link.paid`**, set a secret â†’ paste the same secret as `RAZORPAY_WEBHOOK_SECRET` in Vercel â†’ redeploy.
-
-Every `git push` to `main` now redeploys automatically. No other manual steps.
-
----
-
-## ðŸ§ª Demo script (90 seconds that win)
-
-1. Scan a real receipt â†’ watch Gemini extract vendor/items/date and the fields animate in.
-2. Notice the anomaly chip on a big bill ("60% above usual").
-3. Assign payers, save â†’ activity feed updates.
-4. Open **Settle up** â†’ the beforeâ†’after graph shows 9 possible payments collapsing to 2.
-5. Tap "Create payment links" â†’ real Razorpay test links; pay one on your phone â†’ webhook flips it to âœ… live.
-6. Ask the AI Coach "how much did we spend on food this month?" â€” grounded, real numbers.
-7. Show the monthly recap card and the fair-split forecast.
-
----
-
-## ðŸ“ Structure
-
-```
-app/
-  (tabs)/            home Â· groups Â· scan Â· activity Â· profile (bottom-nav shell)
-  api/               ocr Â· bills Â· settlement Â· payment-links Â· webhooks/razorpay Â· chat Â· insights Â· reminders Â· activity Â· groups Â· session
-components/          bottom-nav Â· bottom-sheet Â· chat-sheet Â· recap-card Â· settlement-graph Â· screens/* Â· ui/*
-lib/                 prisma Â· gemini Â· razorpay Â· settlement-algorithm Â· categorize Â· insights Â· session Â· api
-prisma/schema.prisma User Â· Group Â· Membership Â· Bill Â· BillShare Â· Debt Â· Activity
-public/              manifest.json Â· sw.js Â· icons
-```
-
-## ðŸ› ï¸ Tech stack
-
-Next.js 14 (App Router) Â· TypeScript Â· Tailwind CSS Â· shadcn/ui patterns Â· Framer Motion Â· lucide-react Â· Prisma + Supabase Postgres Â· Google Gemini (`@google/generative-ai`) Â· Razorpay Node SDK (test mode) Â· next-themes (dark mode) Â· PWA manifest + service worker.
-
-
